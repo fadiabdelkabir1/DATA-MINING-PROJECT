@@ -1,0 +1,3701 @@
+---
+title: "PROJET DATA MINING"
+runtime: shiny
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: rows
+    vertical_layout: scroll
+    social: menu
+---
+
+```{r message=FALSE, warning=FALSE}
+#### lib ####
+options(warn=0)
+library(leaflet)
+require(leaflet)
+library(leaflet.extras)
+require(leaflet.extras)
+library(dplyr,warn.conflicts = FALSE)
+require(dplyr)
+library(scales)
+require(scales)
+library(sp)
+require(sp)
+library(cluster)
+require(cluster)
+library(clValid)
+require(clValid)
+library(countrycode)
+require(countrycode)
+library(ggplot2)
+library(plotly)
+library(plyr)
+library(flexdashboard)
+library(FactoMineR)
+library(factoextra)
+library(googleVis)
+library(shiny)
+library(shinydashboard)
+require(TSA)
+library(xts)
+library(tseries)
+library(DT)
+library(viridis)
+library(hrbrthemes)
+library(plyr)
+library(ggpubr)
+library(dygraphs)
+library(tidyverse)
+#### import and cleansing ####
+options(warn=0)
+cora=read.csv('12.csv',check.names = F)
+View(cora)
+Confirmed_df = cora
+Confirmed_dfc=Confirmed_df
+deaths_df = read.csv("d12.csv", check.names=F )
+deaths_dfd=deaths_df
+recovery_df = read.csv("r12.csv", check.names=F )
+recovery_dfr=recovery_df
+df <- read.csv('final-1corona.csv',header= T,sep = ',')
+coraa=cora
+wcora=cora[5:ncol(cora)]
+bycity1=aggregate(cora[ncol(cora)], by=list(Category=cora$'Country/Region'), FUN=sum)
+countries=read.csv('countries.csv')
+countries=countries[-c(1)]
+names(bycity1)[1]=paste('name')
+tot=merge(countries,bycity1,by='name',all.y=T)
+tot[tot$name=='Burma',][c(2,3)]=c('16.871311','96.199379')
+tot[tot$name=='Cabo Verde',][c(2,3)]=c('15.071251','23.361862')
+tot[tot$name=='Congo (Brazzaville)',][c(2,3)]=c('-4.26613','15.28318')
+tot[tot$name=='Congo (Kinshasa)',][c(2,3)]=c('-4.32758','15.31357')
+tot[tot$name=="Cote d'Ivoire",][c(2,3)]=c('5.345317','-4.024429')
+tot[tot$name=='Czechia',][c(2,3)]=c('49.8038','15.4749')
+tot[tot$name=='Diamond Princess',][c(2,3)]=c('20.57302','107.28013')
+tot[tot$name=='Eswatini',][c(2,3)]=c('-26.5179','31.4630')
+tot[tot$name=='Holy See',][c(2,3)]=c('41.9039','12.4521')
+tot[tot$name=='MS Zaandam',][c(2,3)]=c('35.15267 ','127.024612')
+tot[tot$name=='North Macedonia',][c(2,3)]=c('41.6137143',' 21.743258')
+tot[tot$name=='Sao Tome and Principe',][c(2,3)]=c('0.255436',' 6.602781')
+tot[tot$name=='South Sudan',][c(2,3)]=c('6.8769908 ','31.3069782')
+tot[tot$name=='Taiwan*',][c(2,3)]=c('25.105497','121.597366')
+tot[tot$name=='US',][c(2,3)]=c('37.0902405 ','-95.7128906')
+tot[tot$name=='West Bank and Gaza',][c(2,3)]=c('32.0000 ','35.3833')
+tot[tot$name=='Korea, South',][c(2,3)]=c('37.532600','127.024612')
+names(tot)[4]=paste('pop')
+names(tot)[2]=paste('Lat')
+names(tot)[3]=paste('Long')
+
+
+#### continents  ####
+tot<-tot[!(tot$name=="Kosovo"),]
+tot<-tot[!(tot$name=="Diamond Princess"),]
+tot<-tot[!(tot$name=="Eswatini"),]
+tot<-tot[!(tot$name=="MS Zaandam"),]
+tot<-tot[!(tot$name=="Kosovo"),]
+tot$continent <- countrycode(sourcevar = tot[, "name"],
+                             origin = "country.name",
+                             destination = "continent")
+
+africa=tot[tot$continent=='Africa',]
+africa[c(2,3)] <- as.data.frame(apply(africa[c(2,3)], 2, as.numeric)) 
+europe=tot[tot$continent=='Europe',]
+europe[c(2,3)] <- as.data.frame(apply(europe[c(2,3)], 2, as.numeric)) 
+asie=tot[tot$continent=='Asia',]
+asie[c(2,3)] <- as.data.frame(apply(asie[c(2,3)], 2, as.numeric)) 
+americas=tot[tot$continent=='Americas',]
+americas[c(2,3)] <- as.data.frame(apply(americas[c(2,3)], 2, as.numeric)) 
+oceania=tot[tot$continent=='Oceania',]
+oceania[c(2,3)] <- as.data.frame(apply(oceania[c(2,3)], 2, as.numeric))  
+data <-tot
+data[c(2,3)] <- as.data.frame(apply(data[c(2,3)], 2, as.numeric))
+
+names(Confirmed_dfc)[2]=paste('name')
+Confirmed_dfc<-Confirmed_dfc[!(Confirmed_dfc$name=="Kosovo"),]
+Confirmed_dfc<-Confirmed_dfc[!(Confirmed_dfc$name=="Diamond Princess"),]
+Confirmed_dfc<-Confirmed_dfc[!(Confirmed_dfc$name=="Eswatini"),]
+Confirmed_dfc<-Confirmed_dfc[!(Confirmed_dfc$name=="MS Zaandam"),]
+Confirmed_dfc<-Confirmed_dfc[!(Confirmed_dfc$name=="Kosovo"),]
+Confirmed_dfc$continent <- countrycode(sourcevar = Confirmed_dfc[, "name"],
+                             origin = "country.name",
+                             destination = "continent")
+
+africac=Confirmed_dfc[Confirmed_dfc$continent=='Africa',]
+europec=Confirmed_dfc[Confirmed_dfc$continent=='Europe',]
+asiec=Confirmed_dfc[Confirmed_dfc$continent=='Asia',]
+americasc=Confirmed_dfc[Confirmed_dfc$continent=='Americas',]
+oceaniac=Confirmed_dfc[Confirmed_dfc$continent=='Oceania',]
+
+
+names(deaths_dfd)[2]=paste('name')
+deaths_dfd<-deaths_dfd[!(deaths_dfd$name=="Kosovo"),]
+deaths_dfd<-deaths_dfd[!(deaths_dfd$name=="Diamond Princess"),]
+deaths_dfd<-deaths_dfd[!(deaths_dfd$name=="Eswatini"),]
+deaths_dfd<-deaths_dfd[!(deaths_dfd$name=="MS Zaandam"),]
+deaths_dfd<-deaths_dfd[!(deaths_dfd$name=="Kosovo"),]
+deaths_dfd$continent <- countrycode(sourcevar = deaths_dfd[, "name"],
+                             origin = "country.name",
+                             destination = "continent")
+
+africad=deaths_dfd[deaths_dfd$continent=='Africa',]
+europed=deaths_dfd[deaths_dfd$continent=='Europe',]
+asied=deaths_dfd[deaths_dfd$continent=='Asia',]
+americasd=deaths_dfd[deaths_dfd$continent=='Americas',]
+oceaniad=deaths_dfd[deaths_dfd$continent=='Oceania',]
+
+names(recovery_dfr)[2]=paste('name')
+recovery_dfr<-recovery_dfr[!(recovery_dfr$name=="Kosovo"),]
+recovery_dfr<-recovery_dfr[!(recovery_dfr$name=="Diamond Princess"),]
+recovery_dfr<-recovery_dfr[!(recovery_dfr$name=="Eswatini"),]
+recovery_dfr<-recovery_dfr[!(recovery_dfr$name=="MS Zaandam"),]
+recovery_dfr<-recovery_dfr[!(recovery_dfr$name=="Kosovo"),]
+recovery_dfr$continent <- countrycode(sourcevar = recovery_dfr[, "name"],
+                             origin = "country.name",
+                             destination = "continent")
+
+africar=recovery_dfr[recovery_dfr$continent=='Africa',]
+europer=recovery_dfr[recovery_dfr$continent=='Europe',]
+asier=recovery_dfr[recovery_dfr$continent=='Asia',]
+americasr=recovery_dfr[recovery_dfr$continent=='Americas',]
+oceaniar=recovery_dfr[recovery_dfr$continent=='Oceania',]
+#### weeks world ####
+week1=cbind(cora[1:4],(cora[11]))
+names(week1)[ncol(week1)]='ConfirmedCases'
+names(week1)[1]='Province.State'
+names(week1)[2]='Country.Region'
+week2=cbind(cora[1:4],(cora[18]))
+names(week2)[ncol(week1)]='ConfirmedCases'
+names(week2)[1]='Province.State'
+names(week2)[2]='Country.Region'
+week3=cbind(cora[1:4],(cora[25]))
+names(week3)[ncol(week1)]='ConfirmedCases'
+names(week3)[1]='Province.State'
+names(week3)[2]='Country.Region'
+week4=cbind(cora[1:4],(cora[32]))
+names(week4)[ncol(week1)]='ConfirmedCases'
+names(week4)[1]='Province.State'
+names(week4)[2]='Country.Region'
+week5=cbind(cora[1:4],(cora[39]))
+names(week5)[ncol(week1)]='ConfirmedCases'
+names(week5)[1]='Province.State'
+names(week5)[2]='Country.Region'
+week6=cbind(cora[1:4],(cora[46]))
+names(week6)[ncol(week1)]='ConfirmedCases'
+names(week6)[1]='Province.State'
+names(week6)[2]='Country.Region'
+week7=cbind(cora[1:4],(cora[53]))
+names(week7)[ncol(week1)]='ConfirmedCases'
+names(week7)[1]='Province.State'
+names(week7)[2]='Country.Region'
+week8=cbind(cora[1:4],(cora[60]))
+names(week8)[ncol(week1)]='ConfirmedCases'
+names(week8)[1]='Province.State'
+names(week8)[2]='Country.Region'
+week9=cbind(cora[1:4],(cora[67]))
+names(week9)[ncol(week1)]='ConfirmedCases'
+names(week9)[1]='Province.State'
+names(week9)[2]='Country.Region'
+week10=cbind(cora[1:4],(cora[74]))
+names(week10)[ncol(week1)]='ConfirmedCases'
+names(week10)[1]='Province.State'
+names(week10)[2]='Country.Region'
+week11=cbind(cora[1:4],(cora[81]))
+names(week11)[ncol(week1)]='ConfirmedCases'
+names(week11)[1]='Province.State'
+names(week11)[2]='Country.Region'
+week12=cbind(cora[1:4],(cora[87]))
+names(week12)[ncol(week1)]='ConfirmedCases'
+names(week12)[1]='Province.State'
+names(week12)[2]='Country.Region'
+week13=cbind(cora[1:4],(cora[94]))
+names(week13)[ncol(week1)]='ConfirmedCases'
+names(week13)[1]='Province.State'
+names(week13)[2]='Country.Region'
+week14=cbind(cora[1:4],(cora[(ncol(cora))]))
+names(week14)[ncol(week14)]='ConfirmedCases'
+names(week14)[1]='Province.State'
+names(week14)[2]='Country.Region'
+#### weeks africa #### 
+
+coraa<-coraa[!(coraa$"Country/Region"=="Kosovo"),]
+coraa<-coraa[!(coraa$"Country/Region"=="Diamond Princess"),]
+coraa<-coraa[!(coraa$"Country/Region"=="Eswatini"),]
+coraa<-coraa[!(coraa$"Country/Region"=="MS Zaandam"),]
+coraa<-coraa[!(coraa$"Country/Region"=="Kosovo"),]
+coraa$continent <- countrycode(sourcevar = coraa[,"Country/Region"],
+                              origin = "country.name",
+                              destination = "continent")
+aff=coraa[coraa$continent=='Africa',]
+afweek1=cbind(aff[1:4],(aff[11]))
+names(afweek1)[ncol(afweek1)]='ConfirmedCases'
+names(afweek1)[1]='Province.State'
+names(afweek1)[2]='Country.Region'
+afweek2=cbind(aff[1:4],(aff[18]))
+names(afweek2)[ncol(afweek1)]='ConfirmedCases'
+names(afweek2)[1]='Province.State'
+names(afweek2)[2]='Country.Region'
+afweek3=cbind(aff[1:4],(aff[25]))
+names(afweek3)[ncol(afweek1)]='ConfirmedCases'
+names(afweek3)[1]='Province.State'
+names(afweek3)[2]='Country.Region'
+afweek4=cbind(aff[1:4],(aff[32]))
+names(afweek4)[ncol(afweek1)]='ConfirmedCases'
+names(afweek4)[1]='Province.State'
+names(afweek4)[2]='Country.Region'
+afweek5=cbind(aff[1:4],(aff[39]))
+names(afweek5)[ncol(afweek1)]='ConfirmedCases'
+names(afweek5)[1]='Province.State'
+names(afweek5)[2]='Country.Region'
+afweek6=cbind(aff[1:4],(aff[46]))
+names(afweek6)[ncol(afweek1)]='ConfirmedCases'
+names(afweek6)[1]='Province.State'
+names(afweek6)[2]='Country.Region'
+afweek7=cbind(aff[1:4],(aff[53]))
+names(afweek7)[ncol(afweek1)]='ConfirmedCases'
+names(afweek7)[1]='Province.State'
+names(afweek7)[2]='Country.Region'
+afweek8=cbind(aff[1:4],(aff[60]))
+names(afweek8)[ncol(afweek1)]='ConfirmedCases'
+names(afweek8)[1]='Province.State'
+names(afweek8)[2]='Country.Region'
+afweek9=cbind(aff[1:4],(aff[67]))
+names(afweek9)[ncol(afweek1)]='ConfirmedCases'
+names(afweek9)[1]='Province.State'
+names(afweek9)[2]='Country.Region'
+afweek10=cbind(aff[1:4],(aff[74]))
+names(afweek10)[ncol(afweek1)]='ConfirmedCases'
+names(afweek10)[1]='Province.State'
+names(afweek10)[2]='Country.Region'
+afweek11=cbind(aff[1:4],(aff[81]))
+names(afweek11)[ncol(afweek1)]='ConfirmedCases'
+names(afweek11)[1]='Province.State'
+names(afweek11)[2]='Country.Region'
+afweek12=cbind(aff[1:4],(aff[87]))
+names(afweek12)[ncol(afweek1)]='ConfirmedCases'
+names(afweek12)[1]='Province.State'
+names(afweek12)[2]='Country.Region'
+afweek13=cbind(aff[1:4],(aff[94]))
+names(afweek13)[ncol(afweek1)]='ConfirmedCases'
+names(afweek13)[1]='Province.State'
+names(afweek13)[2]='Country.Region'
+afweek14=cbind(aff[1:4],(aff[(ncol(aff)-1)]))
+names(afweek14)[ncol(afweek14)]='ConfirmedCases'
+names(afweek14)[1]='Province.State'
+names(afweek14)[2]='Country.Region'
+#### weeks europe #### 
+eu=coraa[coraa$continent=='Europe',]
+eweek1=cbind(eu[1:4],(eu[11]))
+names(eweek1)[ncol(afweek1)]='ConfirmedCases'
+names(eweek1)[1]='Province.State'
+names(eweek1)[2]='Country.Region'
+eweek2=cbind(eu[1:4],(eu[18]))
+names(eweek2)[ncol(afweek1)]='ConfirmedCases'
+names(eweek2)[1]='Province.State'
+names(eweek2)[2]='Country.Region'
+eweek3=cbind(eu[1:4],(eu[25]))
+names(eweek3)[ncol(afweek1)]='ConfirmedCases'
+names(eweek3)[1]='Province.State'
+names(eweek3)[2]='Country.Region'
+eweek4=cbind(eu[1:4],(eu[32]))
+names(eweek4)[ncol(afweek1)]='ConfirmedCases'
+names(eweek4)[1]='Province.State'
+names(eweek4)[2]='Country.Region'
+eweek5=cbind(eu[1:4],(eu[39]))
+names(eweek5)[ncol(afweek1)]='ConfirmedCases'
+names(eweek5)[1]='Province.State'
+names(eweek5)[2]='Country.Region'
+eweek6=cbind(eu[1:4],(eu[46]))
+names(eweek6)[ncol(afweek1)]='ConfirmedCases'
+names(eweek6)[1]='Province.State'
+names(eweek6)[2]='Country.Region'
+eweek7=cbind(eu[1:4],(eu[53]))
+names(eweek7)[ncol(afweek1)]='ConfirmedCases'
+names(eweek7)[1]='Province.State'
+names(eweek7)[2]='Country.Region'
+eweek8=cbind(eu[1:4],(eu[60]))
+names(eweek8)[ncol(afweek1)]='ConfirmedCases'
+names(eweek8)[1]='Province.State'
+names(eweek8)[2]='Country.Region'
+eweek9=cbind(eu[1:4],(eu[67]))
+names(eweek9)[ncol(afweek1)]='ConfirmedCases'
+names(eweek9)[1]='Province.State'
+names(eweek9)[2]='Country.Region'
+eweek10=cbind(eu[1:4],(eu[74]))
+names(eweek10)[ncol(afweek1)]='ConfirmedCases'
+names(eweek10)[1]='Province.State'
+names(eweek10)[2]='Country.Region'
+eweek11=cbind(eu[1:4],(eu[81]))
+names(eweek11)[ncol(eweek1)]='ConfirmedCases'
+names(eweek11)[1]='Province.State'
+names(eweek11)[2]='Country.Region'
+eweek12=cbind(eu[1:4],(eu[87]))
+names(eweek12)[ncol(eweek1)]='ConfirmedCases'
+names(eweek12)[1]='Province.State'
+names(eweek12)[2]='Country.Region'
+eweek13=cbind(eu[1:4],(eu[94]))
+names(eweek13)[ncol(eweek1)]='ConfirmedCases'
+names(eweek13)[1]='Province.State'
+names(eweek13)[2]='Country.Region'
+eweek14=cbind(eu[1:4],(eu[(ncol(eu)-1)]))
+names(eweek14)[ncol(eweek14)]='ConfirmedCases'
+names(eweek14)[1]='Province.State'
+names(eweek14)[2]='Country.Region'
+#### weeks americas ####
+a=coraa[coraa$continent=='Americas',]
+names(a)[1]='Province.State'
+names(a)[2]='Country.Region'
+aweek1=cbind(a[1:4],(a[11]))
+names(aweek1)[ncol(aweek1)]='ConfirmedCases'
+aweek2=cbind(a[1:4],(a[18]))
+names(aweek2)[ncol(aweek1)]='ConfirmedCases'
+aweek3=cbind(a[1:4],(a[25]))
+names(aweek3)[ncol(aweek1)]='ConfirmedCases'
+aweek4=cbind(a[1:4],(a[32]))
+names(aweek4)[ncol(aweek1)]='ConfirmedCases'
+aweek5=cbind(a[1:4],(a[39]))
+names(aweek5)[ncol(aweek1)]='ConfirmedCases'
+aweek6=cbind(a[1:4],(a[46]))
+names(aweek6)[ncol(aweek1)]='ConfirmedCases'
+aweek7=cbind(a[1:4],(a[53]))
+names(aweek7)[ncol(aweek1)]='ConfirmedCases'
+aweek8=cbind(a[1:4],(a[60]))
+names(aweek8)[ncol(aweek1)]='ConfirmedCases'
+aweek9=cbind(a[1:4],(a[67]))
+names(aweek9)[ncol(aweek1)]='ConfirmedCases'
+aweek10=cbind(a[1:4],(a[74]))
+names(aweek10)[ncol(aweek1)]='ConfirmedCases'
+aweek11=cbind(a[1:4],(a[81]))
+names(aweek11)[ncol(aweek1)]='ConfirmedCases'
+aweek12=cbind(a[1:4],(a[87]))
+names(aweek12)[ncol(aweek1)]='ConfirmedCases'
+aweek13=cbind(a[1:4],(a[94]))
+names(aweek13)[ncol(aweek1)]='ConfirmedCases'
+aweek14=cbind(a[1:4],(a[(ncol(a)-1)]))
+names(aweek14)[ncol(aweek14)]='ConfirmedCases'
+#### weeks oceania ####
+ao=coraa[coraa$continent=='Oceania',]
+names(ao)[1]='Province.State'
+names(ao)[2]='Country.Region'
+aoweek1=cbind(ao[1:4],(ao[11]))
+names(aoweek1)[ncol(aoweek1)]='ConfirmedCases'
+aoweek2=cbind(ao[1:4],(ao[18]))
+names(aoweek2)[ncol(aoweek1)]='ConfirmedCases'
+aoweek3=cbind(ao[1:4],(ao[25]))
+names(aoweek3)[ncol(aoweek1)]='ConfirmedCases'
+aoweek4=cbind(ao[1:4],(ao[32]))
+names(aoweek4)[ncol(aoweek1)]='ConfirmedCases'
+aoweek5=cbind(ao[1:4],(ao[39]))
+names(aoweek5)[ncol(aoweek1)]='ConfirmedCases'
+aoweek6=cbind(ao[1:4],(ao[46]))
+names(aoweek6)[ncol(aoweek1)]='ConfirmedCases'
+aoweek7=cbind(ao[1:4],(ao[53]))
+names(aoweek7)[ncol(aoweek1)]='ConfirmedCases'
+aoweek8=cbind(ao[1:4],(ao[60]))
+names(aoweek8)[ncol(aoweek1)]='ConfirmedCases'
+aoweek9=cbind(ao[1:4],(ao[67]))
+names(aoweek9)[ncol(aoweek1)]='ConfirmedCases'
+aoweek10=cbind(ao[1:4],(ao[74]))
+names(aoweek10)[ncol(aoweek1)]='ConfirmedCases'
+aoweek11=cbind(ao[1:4],(ao[81]))
+names(aoweek11)[ncol(aoweek1)]='ConfirmedCases'
+aoweek12=cbind(ao[1:4],(ao[87]))
+names(aoweek12)[ncol(aoweek1)]='ConfirmedCases'
+aoweek13=cbind(ao[1:4],(ao[94]))
+names(aoweek13)[ncol(aoweek1)]='ConfirmedCases'
+aoweek14=cbind(ao[1:4],(ao[(ncol(ao)-1)]))
+names(aoweek14)[ncol(aoweek14)]='ConfirmedCases'
+#### weeks asia ####
+as=coraa[coraa$continent=='Asia',]
+names(as)[1]='Province.State'
+names(as)[2]='Country.Region'
+asweek1=cbind(as[1:4],(as[11]))
+names(asweek1)[ncol(asweek1)]='ConfirmedCases'
+asweek2=cbind(as[1:4],(as[18]))
+names(asweek2)[ncol(asweek1)]='ConfirmedCases'
+asweek3=cbind(as[1:4],(as[25]))
+names(asweek3)[ncol(asweek1)]='ConfirmedCases'
+asweek4=cbind(as[1:4],(as[32]))
+names(asweek4)[ncol(asweek1)]='ConfirmedCases'
+asweek5=cbind(as[1:4],(as[39]))
+names(asweek5)[ncol(asweek1)]='ConfirmedCases'
+asweek6=cbind(as[1:4],(as[46]))
+names(asweek6)[ncol(asweek1)]='ConfirmedCases'
+asweek7=cbind(as[1:4],(as[53]))
+names(asweek7)[ncol(asweek1)]='ConfirmedCases'
+asweek8=cbind(as[1:4],(as[60]))
+names(asweek8)[ncol(asweek1)]='ConfirmedCases'
+asweek9=cbind(as[1:4],(as[67]))
+names(asweek9)[ncol(asweek1)]='ConfirmedCases'
+asweek10=cbind(as[1:4],(as[74]))
+names(asweek10)[ncol(asweek1)]='ConfirmedCases'
+asweek11=cbind(as[1:4],(as[81]))
+names(asweek11)[ncol(asweek1)]='ConfirmedCases'
+asweek12=cbind(as[1:4],(as[87]))
+names(asweek12)[ncol(asweek1)]='ConfirmedCases'
+asweek13=cbind(as[1:4],(as[94]))
+names(asweek13)[ncol(asweek1)]='ConfirmedCases'
+asweek14=cbind(as[1:4],(as[(ncol(as)-1)]))
+names(asweek14)[ncol(asweek14)]='ConfirmedCases'
+
+
+# ----- confirmed cases world ( serie temporelle ) : ----- #####
+
+world_c <- Confirmed_df[ ,5:ncol(Confirmed_df)]
+date_gl_c = colnames( world_c )
+date_gl_c = as.Date(date_gl_c, '%m/%d/%y')
+world_c <- colSums(world_c)
+world_c <- as.vector(world_c)
+# transformation serie temporelle : 
+global_ts_c = xts(x = world_c, order.by = date_gl_c)
+# total des cas 
+#total_c = world_c
+#total_c = as.data.frame(total_c)
+# total_c = total_c[nrow(total_c),]
+
+
+# ----- Deaths world ( serie temporelle ) : -----
+
+
+world_d <- deaths_df[ ,5:ncol(deaths_df)]
+date_gl_d = colnames( world_d )
+date_gl_d = as.Date(date_gl_d, '%m/%d/%y')
+world_d <- colSums(world_d)
+world_d <- as.vector(world_d)
+# transformation serie temporelle : 
+global_ts_d = xts(x = world_d, order.by = date_gl_d)
+# total des cas morts 
+#total_d = world_d
+#total_d = as.data.frame(total_d)
+# total_d = total_d[nrow(total_d),]
+
+
+# ----- recovered cases world ( serie temporelle ) : -----
+
+
+world_r <- recovery_df[ ,5:ncol(recovery_df)]
+date_gl_r = colnames( world_r )
+date_gl_r = as.Date(date_gl_r, '%m/%d/%y')
+world_r <- colSums(world_r)
+world_r <- as.vector(world_r)
+# transformation serie temporelle : 
+global_ts_r = xts(x = world_r, order.by = date_gl_r)
+# total des recovered 
+#total_r = world_r
+#total_r = as.data.frame(total_r)
+```
+
+
+```{r message=FALSE, warning=FALSE}
+View(kk)
+```
+
+
+```{r message=FALSE, warning=FALSE}
+kk=cbind(africar[2],africac[ncol(africac)-1],africar[ncol(africar)-1],africad[ncol(africad)-1])
+kk=data.frame(kk,row.names = 1)
+names(kk)[1]='CONFIRMED'
+names(kk)[2]='RECOVERIES'
+names(kk)[3]='deaths'
+
+PCA(kk)
+```
+
+
+Exploratory Analysis
+=======================================================================
+Inputs {.sidebar}
+-------------------------------------
+
+```{r}
+selectInput('continents','please select a continent',
+                                          choices = c('world','africa','asia','europe','americas','oceania'))
+```
+ 
+
+row  
+-------------------------------------
+  
+    
+### RECOVERIES {data-width=150} 
+```{r}
+
+renderGauge({
+contsel=input$continents
+    if (contsel=='world'){
+      world_r <- recovery_df[ ,5:ncol(recovery_df)]
+      date_gl_r = colnames( world_r )
+      date_gl_r = as.Date(date_gl_r, '%m/%d/%y')
+      world_r <- colSums(world_r)
+      world_r <- as.vector(world_r)
+      recoveryrate=world_r[length(world_r)]
+      gau=gauge(recoveryrate, min = 0, max = world_c[length(world_c)], gaugeSectors(col='green'),href="https://projectdm.shinyapps.io/test/#section-world")
+    }
+    else if (contsel=='africa'){
+      world_c <- africac[ ,5:(ncol(africac)-1)]
+      date_gl_c = colnames( world_c )
+      date_gl_c = as.Date(date_gl_c, '%m/%d/%y')
+      world_c <- colSums(world_c)
+      world_c <- as.vector(world_c)
+      world_r <- africar[ ,5:(ncol(africar)-1)]
+      date_gl_r = colnames( world_r )
+      date_gl_r = as.Date(date_gl_r, '%m/%d/%y')
+      world_r <- colSums(world_r)
+      world_r <- as.vector(world_r)
+      recoveryrate=world_r[length(world_r)]
+      gau=gauge(round(recoveryrate), min = 0, max = world_c[length(world_c)], gaugeSectors(col='green'),href="https://projectdm.shinyapps.io/test/#section-africa")
+    }
+    else if (contsel=='europe'){
+      world_c <- europec[ ,5:(ncol(europec)-1)]
+      date_gl_c = colnames( world_c )
+      date_gl_c = as.Date(date_gl_c, '%m/%d/%y')
+      world_c <- colSums(world_c)
+      world_c <- as.vector(world_c)
+      world_r <- europer[ ,5:(ncol(europer)-1)]
+      date_gl_r = colnames( world_r )
+      date_gl_r = as.Date(date_gl_r, '%m/%d/%y')
+      world_r <- colSums(world_r)
+      world_r <- as.vector(world_r)
+      recoveryrate=world_r[length(world_r)]
+      gau=gauge(round(recoveryrate), min = 0, max = world_c[length(world_c)], gaugeSectors(col='green'),href="https://projectdm.shinyapps.io/test/#section-europe")
+    }
+    else if (contsel=='asia'){
+      world_c <- asiec[ ,5:(ncol(asiec)-1)]
+      date_gl_c = colnames( world_c )
+      date_gl_c = as.Date(date_gl_c, '%m/%d/%y')
+      world_c <- colSums(world_c)
+      world_c <- as.vector(world_c)
+      world_r <- asier[ ,5:(ncol(asier)-1)]
+      date_gl_r = colnames( world_r )
+      date_gl_r = as.Date(date_gl_r, '%m/%d/%y')
+      world_r <- colSums(world_r)
+      world_r <- as.vector(world_r)
+      recoveryrate=world_r[length(world_r)]
+      gau=gauge(round(recoveryrate), min = 0, max = world_c[length(world_c)], gaugeSectors(col='green'),href="https://projectdm.shinyapps.io/test/#section-asia")
+    }
+    else if (contsel=='americas'){
+      world_c <- americasc[ ,5:(ncol(americasc)-1)]
+      date_gl_c = colnames( world_c )
+      date_gl_c = as.Date(date_gl_c, '%m/%d/%y')
+      world_c <- colSums(world_c)
+      world_c <- as.vector(world_c)
+      world_r <- americasr[ ,5:(ncol(americasr)-1)]
+      date_gl_r = colnames( world_r )
+      date_gl_r = as.Date(date_gl_r, '%m/%d/%y')
+      world_r <- colSums(world_r)
+      world_r <- as.vector(world_r)
+      recoveryrate=world_r[length(world_r)]
+      gau=gauge(round(recoveryrate), min = 0, max = world_c[length(world_c)], gaugeSectors(col='green'),href="https://projectdm.shinyapps.io/test/#section-americas")
+    }
+    else if (contsel=='oceania'){
+      world_c <- oceaniac[ ,5:(ncol(oceaniac)-1)]
+      date_gl_c = colnames( world_c )
+      date_gl_c = as.Date(date_gl_c, '%m/%d/%y')
+      world_c <- colSums(world_c)
+      world_c <- as.vector(world_c)
+      world_r <- oceaniar[ ,5:(ncol(oceaniar)-1)]
+      date_gl_r = colnames( world_r )
+      date_gl_r = as.Date(date_gl_r, '%m/%d/%y')
+      world_r <- colSums(world_r)
+      world_r <- as.vector(world_r)
+      recoveryrate=world_r[length(world_r)]
+      gau=gauge(round(recoveryrate), min = 0, max = world_c[length(world_c)], gaugeSectors(col='green'),href="https://projectdm.shinyapps.io/test/#section-oceania")
+    }
+
+})
+```
+
+
+### CONFIRMED CASES {data-width=150} 
+```{r}
+
+renderGauge({
+  contsel=input$continents
+    if (contsel=='world'){
+      confirmedrate=world_c[length(world_c)]
+      gauge(confirmedrate, min = 0, max = world_c[length(world_c)], gaugeSectors(colors = 'orange'),href="https://projectdm.shinyapps.io/test/#section-world-1")
+    }
+    else if (contsel=='africa'){
+      world_c <- africac[ ,5:(ncol(africac)-1)]
+      date_gl_c = colnames( world_c )
+      date_gl_c = as.Date(date_gl_c, '%m/%d/%y')
+      world_c <- colSums(world_c)
+      world_c <- as.vector(world_c)
+      confirmedrate=world_c[length(world_c)]
+      gauge(confirmedrate, min = 0, max = world_c[length(world_c)], gaugeSectors(colors = 'orange'),href="https://projectdm.shinyapps.io/test/#section-africa-1")
+    }
+    else if (contsel=='europe'){
+      world_c <- europec[ ,5:(ncol(europec)-1)]
+      date_gl_c = colnames( world_c )
+      date_gl_c = as.Date(date_gl_c, '%m/%d/%y')
+      world_c <- colSums(world_c)
+      world_c <- as.vector(world_c)
+      confirmedrate=world_c[length(world_c)]
+      gauge(confirmedrate, min = 0, max = world_c[length(world_c)], gaugeSectors(colors = 'orange'),href="https://projectdm.shinyapps.io/test/#section-europe-1")
+    }
+    else if (contsel=='asia'){
+      world_c <- asiec[ ,5:(ncol(asiec)-1)]
+      date_gl_c = colnames( world_c )
+      date_gl_c = as.Date(date_gl_c, '%m/%d/%y')
+      world_c <- colSums(world_c)
+      world_c <- as.vector(world_c)
+      confirmedrate=world_c[length(world_c)]
+      gauge(confirmedrate, min = 0, max = world_c[length(world_c)], gaugeSectors(colors = 'orange'),href="https://projectdm.shinyapps.io/test/#section-asia-1")
+      }
+    else if (contsel=='americas'){
+      world_c <- americasc[ ,5:(ncol(americasc)-1)]
+      date_gl_c = colnames( world_c )
+      date_gl_c = as.Date(date_gl_c, '%m/%d/%y')
+      world_c <- colSums(world_c)
+      world_c <- as.vector(world_c)
+      confirmedrate=world_c[length(world_c)]
+      gauge(confirmedrate, min = 0, max = world_c[length(world_c)], gaugeSectors(colors = 'orange'),href="https://projectdm.shinyapps.io/test/#section-americas-1")
+      }
+    else if (contsel=='oceania'){
+      world_c <- oceaniac[ ,5:(ncol(oceaniac)-1)]
+      date_gl_c = colnames( world_c )
+      date_gl_c = as.Date(date_gl_c, '%m/%d/%y')
+      world_c <- colSums(world_c)
+      world_c <- as.vector(world_c)
+      confirmedrate=world_c[length(world_c)]
+      gauge(confirmedrate, min = 0, max = world_c[length(world_c)], gaugeSectors(colors = 'orange'),href="https://projectdm.shinyapps.io/test/#section-oceania-1")
+      }
+
+})
+```
+
+
+### DEATHS {data-width=150} 
+```{r}
+renderGauge({
+  contsel=input$continents
+    if (contsel=='world'){
+      confirmedrate=world_d[length(world_d)]
+      gauge(confirmedrate, min = 0, max = world_c[length(world_c)], gaugeSectors(colors = 'red'),href="https://projectdm.shinyapps.io/test/#section-world-2")
+    }
+    else if (contsel=='africa'){
+      world_c <- africac[ ,5:(ncol(africac)-1)]
+      date_gl_c = colnames( world_c )
+      date_gl_c = as.Date(date_gl_c, '%m/%d/%y')
+      world_c <- colSums(world_c)
+      world_c <- as.vector(world_c)
+      world_d <- africad[ ,5:(ncol(africad)-1)]
+      date_gl_d = colnames( world_d )
+      date_gl_d = as.Date(date_gl_d, '%m/%d/%y')
+      world_d <- colSums(world_d)
+      world_d <- as.vector(world_d)
+      confirmedrate=world_d[length(world_d)]
+      gauge(confirmedrate, min = 0, max = world_c[length(world_c)], gaugeSectors(colors = 'red'),href="https://projectdm.shinyapps.io/test/#section-africa-2")
+    }
+    else if (contsel=='europe'){
+      world_c <- europec[ ,5:(ncol(europec)-1)]
+      date_gl_c = colnames( world_c )
+      date_gl_c = as.Date(date_gl_c, '%m/%d/%y')
+      world_c <- colSums(world_c)
+      world_c <- as.vector(world_c)
+      world_d <- europed[ ,5:(ncol(europed)-1)]
+      date_gl_d = colnames( world_d )
+      date_gl_d = as.Date(date_gl_d, '%m/%d/%y')
+      world_d <- colSums(world_d)
+      world_d <- as.vector(world_d)
+      confirmedrate=world_d[length(world_d)]
+      gauge(confirmedrate, min = 0, max = world_c[length(world_c)], gaugeSectors(colors = 'red'),href="https://projectdm.shinyapps.io/test/#section-europe-2")
+    }
+    else if (contsel=='asia'){
+      world_c <- asiec[ ,5:(ncol(asiec)-1)]
+      date_gl_c = colnames( world_c )
+      date_gl_c = as.Date(date_gl_c, '%m/%d/%y')
+      world_c <- colSums(world_c)
+      world_c <- as.vector(world_c)
+      world_d <- asied[ ,5:(ncol(asied)-1)]
+      date_gl_d = colnames( world_d )
+      date_gl_d = as.Date(date_gl_d, '%m/%d/%y')
+      world_d <- colSums(world_d)
+      world_d <- as.vector(world_d)
+      confirmedrate=world_d[length(world_d)]
+      gauge(confirmedrate, min = 0, max = world_c[length(world_c)], gaugeSectors(colors = 'red'),href="https://projectdm.shinyapps.io/test/#section-asia-2")
+      }
+    else if (contsel=='americas'){
+      world_c <- americasc[ ,5:(ncol(americasc)-1)]
+      date_gl_c = colnames( world_c )
+      date_gl_c = as.Date(date_gl_c, '%m/%d/%y')
+      world_c <- colSums(world_c)
+      world_c <- as.vector(world_c)
+      world_d <- americasd[ ,5:(ncol(americasd)-1)]
+      date_gl_d = colnames( world_d )
+      date_gl_d = as.Date(date_gl_d, '%m/%d/%y')
+      world_d <- colSums(world_d)
+      world_d <- as.vector(world_d)
+      confirmedrate=world_d[length(world_d)]
+      gauge(confirmedrate, min = 0, max = world_c[length(world_c)], gaugeSectors(colors = 'red'),href="https://projectdm.shinyapps.io/test/#section-americas-2")
+      }
+    else if (contsel=='oceania'){
+      world_c <- oceaniac[ ,5:(ncol(oceaniac)-1)]
+      date_gl_c = colnames( world_c )
+      date_gl_c = as.Date(date_gl_c, '%m/%d/%y')
+      world_c <- colSums(world_c)
+      world_c <- as.vector(world_c)
+      world_d <- oceaniad[ ,5:(ncol(oceaniad)-1)]
+      date_gl_d = colnames( world_d )
+      date_gl_d = as.Date(date_gl_d, '%m/%d/%y')
+      world_d <- colSums(world_d)
+      world_d <- as.vector(world_d)
+      confirmedrate=world_d[length(world_d)]
+      gauge(confirmedrate, min = 0, max = world_c[length(world_c)], gaugeSectors(colors = 'red'),href="https://projectdm.shinyapps.io/test/#section-oceania-2")
+      }
+
+})
+```
+
+Row
+-------------------------------------
+### chart 2
+```{r}
+renderLeaflet({
+    contsel=input$continents
+    if (contsel=='world'){
+     carte=leaflet() %>% 
+      addProviderTiles("CartoDB") %>% 
+      setView(lng = 0, lat = 10, zoom = 1.5) %>% 
+      addCircleMarkers(
+        group = "WEEK 1", 
+        data = week1, 
+        lng = ~ Long,
+        lat = ~ Lat, 
+        radius = ~ log(ConfirmedCases + 1), 
+        color = alpha("red",0.3), 
+        fillOpacity = ~ ifelse(ConfirmedCases > 0,1,0), 
+        stroke = FALSE, opacity = 0.1,
+        label = ~ paste0(Province.State, " ", Country.Region, ": ", ConfirmedCases), 
+        popup = ~ paste0("<b>", Province.State, " ", Country.Region, "</b><br>Confirmed Cases: ", ConfirmedCases)
+      ) %>% 
+      addCircleMarkers(
+        group = "WEEK 2", 
+        data = week2, 
+        lng = ~ Long,
+        lat = ~ Lat, 
+        radius = ~ log(ConfirmedCases + 1), 
+        color = alpha("red",0.3), 
+        fillOpacity = ~ ifelse(ConfirmedCases > 0, 1, 0), 
+        stroke = FALSE, 
+        label = ~ paste0(Province.State, " ", Country.Region, ": ", ConfirmedCases), 
+        popup = ~ paste0("<b>", Province.State, " ", Country.Region, "</b><br>Confirmed Cases: ", ConfirmedCases)
+      ) %>% 
+      addCircleMarkers(
+        group = "WEEK 3", 
+        data = week3, 
+        lng = ~ Long,
+        lat = ~ Lat, 
+        radius = ~ log(ConfirmedCases + 1), 
+        color = alpha("red",0.3), 
+        fillOpacity = ~ ifelse(ConfirmedCases > 0, 1, 0), 
+        stroke = FALSE, 
+        label = ~ paste0(Province.State, " ", Country.Region, ": ", ConfirmedCases), 
+        popup = ~ paste0("<b>", Province.State, " ", Country.Region, "</b><br>Confirmed Cases: ", ConfirmedCases)
+      ) %>% 
+      addCircleMarkers(
+        group = "WEEK 4", 
+        data = week4, 
+        lng = ~ Long,
+        lat = ~ Lat, 
+        radius = ~ log(ConfirmedCases + 1), 
+        color = alpha("red",0.3), 
+        fillOpacity = ~ ifelse(ConfirmedCases > 0, 1, 0), 
+        stroke = FALSE, 
+        label = ~ paste0(Province.State, " ", Country.Region, ": ", ConfirmedCases), 
+        popup = ~ paste0("<b>", Province.State, " ", Country.Region, "</b><br>Confirmed Cases: ", ConfirmedCases)
+      ) %>% 
+      addCircleMarkers(
+        group = "WEEK 5", 
+        data = week5, 
+        lng = ~ Long,
+        lat = ~ Lat, 
+        radius = ~ log(ConfirmedCases + 1), 
+        color = alpha("red",0.3), 
+        fillOpacity = ~ ifelse(ConfirmedCases > 0, 1, 0), 
+        stroke = FALSE, 
+        label = ~ paste0(Province.State, " ", Country.Region, ": ", ConfirmedCases), 
+        popup = ~ paste0("<b>", Province.State, " ", Country.Region, "</b><br>Confirmed Cases: ", ConfirmedCases)
+      ) %>% 
+      addCircleMarkers(
+        group = "WEEK 6", 
+        data = week6, 
+        lng = ~ Long,
+        lat = ~ Lat, 
+        radius = ~ log(ConfirmedCases + 1), 
+        color = alpha("red",0.3), 
+        fillOpacity = ~ ifelse(ConfirmedCases > 0, 1, 0), 
+        stroke = FALSE, 
+        label = ~ paste0(Province.State, " ", Country.Region, ": ", ConfirmedCases), 
+        popup = ~ paste0("<b>", Province.State, " ", Country.Region, "</b><br>Confirmed Cases: ", ConfirmedCases)
+      ) %>% 
+      addCircleMarkers(
+        group = "WEEK 7", 
+        data = week7, 
+        lng = ~ Long,
+        lat = ~ Lat, 
+        radius = ~ log(ConfirmedCases + 1), 
+        color = alpha("red",0.3), 
+        fillOpacity = ~ ifelse(ConfirmedCases > 0, 1, 0), 
+        stroke = FALSE, 
+        label = ~ paste0(Province.State, " ", Country.Region, ": ", ConfirmedCases), 
+        popup = ~ paste0("<b>", Province.State, " ", Country.Region, "</b><br>Confirmed Cases: ", ConfirmedCases)
+      ) %>% 
+      addCircleMarkers(
+        group = "WEEK 8", 
+        data = week8, 
+        lng = ~ Long,
+        lat = ~ Lat, 
+        radius = ~ log(ConfirmedCases + 1), 
+        color = alpha("red",0.3), 
+        fillOpacity = ~ ifelse(ConfirmedCases > 0, 1, 0), 
+        stroke = FALSE, 
+        label = ~ paste0(Province.State, " ", Country.Region, ": ", ConfirmedCases), 
+        popup = ~ paste0("<b>", Province.State, " ", Country.Region, "</b><br>Confirmed Cases: ", ConfirmedCases)
+      ) %>% 
+      addCircleMarkers(
+        group = "WEEK 9", 
+        data = week9, 
+        lng = ~ Long,
+        lat = ~ Lat, 
+        radius = ~ log(ConfirmedCases + 1), 
+        color = alpha("red",0.3), 
+        fillOpacity = ~ ifelse(ConfirmedCases > 0, 1, 0), 
+        stroke = FALSE, 
+        label = ~ paste0(Province.State, " ", Country.Region, ": ", ConfirmedCases), 
+        popup = ~ paste0("<b>", Province.State, " ", Country.Region, "</b><br>Confirmed Cases: ", ConfirmedCases)
+      ) %>% 
+      addCircleMarkers(
+        group = "WEEK 10", 
+        data = week10, 
+        lng = ~ Long,
+        lat = ~ Lat, 
+        radius = ~ log(ConfirmedCases + 1), 
+        color = alpha("red",0.3), 
+        fillOpacity = ~ ifelse(ConfirmedCases > 0, 1, 0), 
+        stroke = FALSE, 
+        label = ~ paste0(Province.State, " ", Country.Region, ": ", ConfirmedCases), 
+        popup = ~ paste0("<b>", Province.State, " ", Country.Region, "</b><br>Confirmed Cases: ", ConfirmedCases)
+      ) %>%
+      addCircleMarkers(
+        group = "WEEK 11", 
+        data = week11, 
+        lng = ~ Long,
+        lat = ~ Lat, 
+        radius = ~ log(ConfirmedCases + 1), 
+        color = alpha("red",0.3), 
+        fillOpacity = ~ ifelse(ConfirmedCases > 0, 1, 0), 
+        stroke = FALSE, 
+        label = ~ paste0(Province.State, " ", Country.Region, ": ", ConfirmedCases), 
+        popup = ~ paste0("<b>", Province.State, " ", Country.Region, "</b><br>Confirmed Cases: ", ConfirmedCases)
+      ) %>%
+       addCircleMarkers(
+         group = "WEEK 12", 
+         data = week12, 
+         lng = ~ Long,
+         lat = ~ Lat, 
+         radius = ~ log(ConfirmedCases + 1), 
+         color = alpha("red",0.3), 
+         fillOpacity = ~ ifelse(ConfirmedCases > 0, 1, 0), 
+         stroke = FALSE, 
+         label = ~ paste0(Province.State, " ", Country.Region, ": ", ConfirmedCases), 
+         popup = ~ paste0("<b>", Province.State, " ", Country.Region, "</b><br>Confirmed Cases: ", ConfirmedCases)
+       )%>%
+       addCircleMarkers(
+         group = "WEEK 13", 
+         data = week13, 
+         lng = ~ Long,
+         lat = ~ Lat, 
+         radius = ~ log(ConfirmedCases + 1), 
+         color = alpha("red",0.3), 
+         fillOpacity = ~ ifelse(ConfirmedCases > 0, 1, 0), 
+         stroke = FALSE, 
+         label = ~ paste0(Province.State, " ", Country.Region, ": ", ConfirmedCases), 
+         popup = ~ paste0("<b>", Province.State, " ", Country.Region, "</b><br>Confirmed Cases: ", ConfirmedCases)
+       ) %>%
+       addCircleMarkers(
+         group = "WEEK 14", 
+         data = week14, 
+         lng = ~ Long,
+         lat = ~ Lat, 
+         radius = ~ log(ConfirmedCases + 1), 
+         color = alpha("red",0.3), 
+         fillOpacity = ~ ifelse(ConfirmedCases > 0, 1, 0), 
+         stroke = FALSE, 
+         label = ~ paste0(Province.State, " ", Country.Region, ": ", ConfirmedCases), 
+         popup = ~ paste0("<b>", Province.State, " ", Country.Region, "</b><br>Confirmed Cases: ", ConfirmedCases)
+       )%>%
+       addLayersControl(
+         baseGroups = c("WEEK 1", "WEEK 2", "WEEK 3", "WEEK 4", "WEEK 5","WEEK 6","WEEK 7", "WEEK 8", "WEEK 9", "WEEK 10", "WEEK 11","WEEK 12","WEEK 13","WEEK 14"), 
+         position = "bottomright", 
+         options = layersControlOptions(collapsed = FALSE)
+       )
+    
+  }
+    else if (contsel=='africa'){
+      carte=leaflet() %>% 
+        addProviderTiles("CartoDB") %>% 
+        setView(lng=40.18,lat= 18.37, zoom=3) %>% 
+        addCircleMarkers(
+          group = "WEEK 1", 
+          data = afweek1, 
+          lng = ~ Long,
+          lat = ~ Lat, 
+          radius = ~ log(ConfirmedCases + 1)+10, 
+          color = alpha("ORANGE",0.3), 
+          fillOpacity = ~ ifelse(ConfirmedCases > 0,1,0), 
+          stroke = FALSE, opacity = 0.1,
+          label = ~ paste0(Province.State, " ", Country.Region, ": ", ConfirmedCases), 
+          popup = ~ paste0("<b>", Province.State, " ", Country.Region, "</b><br>Confirmed Cases: ", ConfirmedCases)
+        ) %>% 
+        addCircleMarkers(
+          group = "WEEK 2", 
+          data = afweek2, 
+          lng = ~ Long,
+          lat = ~ Lat, 
+          radius = ~ log(ConfirmedCases + 1)+10, 
+          color = alpha("ORANGE",0.3), 
+          fillOpacity = ~ ifelse(ConfirmedCases > 0, 1, 0), 
+          stroke = FALSE, 
+          label = ~ paste0(Province.State, " ", Country.Region, ": ", ConfirmedCases), 
+          popup = ~ paste0("<b>", Province.State, " ", Country.Region, "</b><br>Confirmed Cases: ", ConfirmedCases)
+        ) %>% 
+        addCircleMarkers(
+          group = "WEEK 3", 
+          data = afweek3, 
+          lng = ~ Long,
+          lat = ~ Lat, 
+          radius = ~ log(ConfirmedCases + 1)+10, 
+          color = alpha("ORANGE",0.3), 
+          fillOpacity = ~ ifelse(ConfirmedCases > 0, 1, 0), 
+          stroke = FALSE, 
+          label = ~ paste0(Province.State, " ", Country.Region, ": ", ConfirmedCases), 
+          popup = ~ paste0("<b>", Province.State, " ", Country.Region, "</b><br>Confirmed Cases: ", ConfirmedCases)
+        ) %>% 
+        addCircleMarkers(
+          group = "WEEK 4", 
+          data = afweek4, 
+          lng = ~ Long,
+          lat = ~ Lat, 
+          radius = ~ log(ConfirmedCases + 1)+10, 
+          color = alpha("ORANGE",0.3), 
+          fillOpacity = ~ ifelse(ConfirmedCases > 0, 1, 0), 
+          stroke = FALSE, 
+          label = ~ paste0(Province.State, " ", Country.Region, ": ", ConfirmedCases), 
+          popup = ~ paste0("<b>", Province.State, " ", Country.Region, "</b><br>Confirmed Cases: ", ConfirmedCases)
+        ) %>% 
+        addCircleMarkers(
+          group = "WEEK 5", 
+          data = afweek5, 
+          lng = ~ Long,
+          lat = ~ Lat, 
+          radius = ~ log(ConfirmedCases + 1)+10, 
+          color = alpha("ORANGE",0.3), 
+          fillOpacity = ~ ifelse(ConfirmedCases > 0, 1, 0), 
+          stroke = FALSE, 
+          label = ~ paste0(Province.State, " ", Country.Region, ": ", ConfirmedCases), 
+          popup = ~ paste0("<b>", Province.State, " ", Country.Region, "</b><br>Confirmed Cases: ", ConfirmedCases)
+        ) %>% 
+        addCircleMarkers(
+          group = "WEEK 6", 
+          data = afweek6, 
+          lng = ~ Long,
+          lat = ~ Lat, 
+          radius = ~ log(ConfirmedCases + 1)+10, 
+          color = alpha("ORANGE",0.3), 
+          fillOpacity = ~ ifelse(ConfirmedCases > 0, 1, 0), 
+          stroke = FALSE, 
+          label = ~ paste0(Province.State, " ", Country.Region, ": ", ConfirmedCases), 
+          popup = ~ paste0("<b>", Province.State, " ", Country.Region, "</b><br>Confirmed Cases: ", ConfirmedCases)
+        ) %>% 
+        addCircleMarkers(
+          group = "WEEK 7", 
+          data = afweek7, 
+          lng = ~ Long,
+          lat = ~ Lat, 
+          radius = ~ log(ConfirmedCases + 1)+10, 
+          color = alpha("ORANGE",0.3), 
+          fillOpacity = ~ ifelse(ConfirmedCases > 0, 1, 0), 
+          stroke = FALSE, 
+          label = ~ paste0(Province.State, " ", Country.Region, ": ", ConfirmedCases), 
+          popup = ~ paste0("<b>", Province.State, " ", Country.Region, "</b><br>Confirmed Cases: ", ConfirmedCases)
+        ) %>% 
+        addCircleMarkers(
+          group = "WEEK 8", 
+          data = afweek8, 
+          lng = ~ Long,
+          lat = ~ Lat, 
+          radius = ~ log(ConfirmedCases + 1)+10, 
+          color = alpha("ORANGE",0.3), 
+          fillOpacity = ~ ifelse(ConfirmedCases > 0, 1, 0), 
+          stroke = FALSE, 
+          label = ~ paste0(Province.State, " ", Country.Region, ": ", ConfirmedCases), 
+          popup = ~ paste0("<b>", Province.State, " ", Country.Region, "</b><br>Confirmed Cases: ", ConfirmedCases)
+        ) %>% 
+        addCircleMarkers(
+          group = "WEEK 9", 
+          data = afweek9, 
+          lng = ~ Long,
+          lat = ~ Lat, 
+          radius = ~ log(ConfirmedCases + 1)+10, 
+          color = alpha("ORANGE",0.3), 
+          fillOpacity = ~ ifelse(ConfirmedCases > 0, 1, 0), 
+          stroke = FALSE, 
+          label = ~ paste0(Province.State, " ", Country.Region, ": ", ConfirmedCases), 
+          popup = ~ paste0("<b>", Province.State, " ", Country.Region, "</b><br>Confirmed Cases: ", ConfirmedCases)
+        ) %>% 
+        addCircleMarkers(
+          group = "WEEK 10", 
+          data = afweek10, 
+          lng = ~ Long,
+          lat = ~ Lat, 
+          radius = ~ log(ConfirmedCases + 1)+10, 
+          color = alpha("ORANGE",0.3), 
+          fillOpacity = ~ ifelse(ConfirmedCases > 0, 1, 0), 
+          stroke = FALSE, 
+          label = ~ paste0(Province.State, " ", Country.Region, ": ", ConfirmedCases), 
+          popup = ~ paste0("<b>", Province.State, " ", Country.Region, "</b><br>Confirmed Cases: ", ConfirmedCases)
+        ) %>%
+        addCircleMarkers(
+          group = "WEEK 11", 
+          data = afweek11, 
+          lng = ~ Long,
+          lat = ~ Lat, 
+          radius = ~ log(ConfirmedCases + 1)+10, 
+          color = alpha("ORANGE",0.3), 
+          fillOpacity = ~ ifelse(ConfirmedCases > 0, 1, 0), 
+          stroke = FALSE, 
+          label = ~ paste0(Province.State, " ", Country.Region, ": ", ConfirmedCases), 
+          popup = ~ paste0("<b>", Province.State, " ", Country.Region, "</b><br>Confirmed Cases: ", ConfirmedCases)
+        ) %>%
+        addCircleMarkers(
+          group = "WEEK 12", 
+          data = afweek12, 
+          lng = ~ Long,
+          lat = ~ Lat, 
+          radius = ~ log(ConfirmedCases + 1)+10, 
+          color = alpha("ORANGE",0.3), 
+          fillOpacity = ~ ifelse(ConfirmedCases > 0, 1, 0), 
+          stroke = FALSE, 
+          label = ~ paste0(Province.State, " ", Country.Region, ": ", ConfirmedCases), 
+          popup = ~ paste0("<b>", Province.State, " ", Country.Region, "</b><br>Confirmed Cases: ", ConfirmedCases)
+        )%>%
+        addCircleMarkers(
+          group = "WEEK 13", 
+          data = afweek13, 
+          lng = ~ Long,
+          lat = ~ Lat, 
+          radius = ~ log(ConfirmedCases + 1)+10, 
+          color = alpha("ORANGE",0.3), 
+          fillOpacity = ~ ifelse(ConfirmedCases > 0, 1, 0), 
+          stroke = FALSE, 
+          label = ~ paste0(Province.State, " ", Country.Region, ": ", ConfirmedCases), 
+          popup = ~ paste0("<b>", Province.State, " ", Country.Region, "</b><br>Confirmed Cases: ", ConfirmedCases)
+        )%>%
+        addCircleMarkers(
+          group = "WEEK 14", 
+          data = afweek14, 
+          lng = ~ Long,
+          lat = ~ Lat, 
+          radius = ~ log(ConfirmedCases + 1)+10, 
+          color = alpha("ORANGE",0.3), 
+          fillOpacity = ~ ifelse(ConfirmedCases > 0, 1, 0), 
+          stroke = FALSE, 
+          label = ~ paste0(Province.State, " ", Country.Region, ": ", ConfirmedCases), 
+          popup = ~ paste0("<b>", Province.State, " ", Country.Region, "</b><br>Confirmed Cases: ", ConfirmedCases)
+        ) %>%
+        addLayersControl(
+          baseGroups = c("WEEK 1", "WEEK 2", "WEEK 3", "WEEK 4", "WEEK 5","WEEK 6","WEEK 7", "WEEK 8", "WEEK 9", "WEEK 10", "WEEK 11","WEEK 12","WEEK 13","WEEK 14"), 
+          position = "bottomright", 
+          options = layersControlOptions(collapsed = FALSE)
+        )
+      
+      
+    }
+    else if (contsel=='europe'){
+      carte=leaflet() %>% 
+        addProviderTiles("CartoDB") %>% 
+        setView(lng = 9, lat = 53, zoom = 3) %>% 
+        addCircleMarkers(
+          group = "WEEK 1", 
+          data = eweek1, 
+          lng = ~ Long,
+          lat = ~ Lat, 
+          radius = ~ log(ConfirmedCases + 1)+10, 
+          color = alpha("green",0.3), 
+          fillOpacity = ~ ifelse(ConfirmedCases > 0,1,0), 
+          stroke = FALSE, opacity = 0.1,
+          label = ~ paste0(Province.State, " ", Country.Region, ": ", ConfirmedCases), 
+          popup = ~ paste0("<b>", Province.State, " ", Country.Region, "</b><br>Confirmed Cases: ", ConfirmedCases)
+        ) %>% 
+        addCircleMarkers(
+          group = "WEEK 2", 
+          data = eweek2, 
+          lng = ~ Long,
+          lat = ~ Lat, 
+          radius = ~ log(ConfirmedCases + 1)+10, 
+          color = alpha("green",0.3), 
+          fillOpacity = ~ ifelse(ConfirmedCases > 0, 1, 0), 
+          stroke = FALSE, 
+          label = ~ paste0(Province.State, " ", Country.Region, ": ", ConfirmedCases), 
+          popup = ~ paste0("<b>", Province.State, " ", Country.Region, "</b><br>Confirmed Cases: ", ConfirmedCases)
+        ) %>% 
+        addCircleMarkers(
+          group = "WEEK 3", 
+          data = eweek3, 
+          lng = ~ Long,
+          lat = ~ Lat, 
+          radius = ~ log(ConfirmedCases + 1)+10, 
+          color = alpha("green",0.3), 
+          fillOpacity = ~ ifelse(ConfirmedCases > 0, 1, 0), 
+          stroke = FALSE, 
+          label = ~ paste0(Province.State, " ", Country.Region, ": ", ConfirmedCases), 
+          popup = ~ paste0("<b>", Province.State, " ", Country.Region, "</b><br>Confirmed Cases: ", ConfirmedCases)
+        ) %>% 
+        addCircleMarkers(
+          group = "WEEK 4", 
+          data = eweek4, 
+          lng = ~ Long,
+          lat = ~ Lat, 
+          radius = ~ log(ConfirmedCases + 1)+10, 
+          color = alpha("green",0.3), 
+          fillOpacity = ~ ifelse(ConfirmedCases > 0, 1, 0), 
+          stroke = FALSE, 
+          label = ~ paste0(Province.State, " ", Country.Region, ": ", ConfirmedCases), 
+          popup = ~ paste0("<b>", Province.State, " ", Country.Region, "</b><br>Confirmed Cases: ", ConfirmedCases)
+        ) %>% 
+        addCircleMarkers(
+          group = "WEEK 5", 
+          data = eweek5, 
+          lng = ~ Long,
+          lat = ~ Lat, 
+          radius = ~ log(ConfirmedCases + 1)+10, 
+          color = alpha("green",0.3), 
+          fillOpacity = ~ ifelse(ConfirmedCases > 0, 1, 0), 
+          stroke = FALSE, 
+          label = ~ paste0(Province.State, " ", Country.Region, ": ", ConfirmedCases), 
+          popup = ~ paste0("<b>", Province.State, " ", Country.Region, "</b><br>Confirmed Cases: ", ConfirmedCases)
+        ) %>% 
+        addCircleMarkers(
+          group = "WEEK 6", 
+          data = eweek6, 
+          lng = ~ Long,
+          lat = ~ Lat, 
+          radius = ~ log(ConfirmedCases + 1)+10, 
+          color = alpha("green",0.3), 
+          fillOpacity = ~ ifelse(ConfirmedCases > 0, 1, 0), 
+          stroke = FALSE, 
+          label = ~ paste0(Province.State, " ", Country.Region, ": ", ConfirmedCases), 
+          popup = ~ paste0("<b>", Province.State, " ", Country.Region, "</b><br>Confirmed Cases: ", ConfirmedCases)
+        ) %>% 
+        addCircleMarkers(
+          group = "WEEK 7", 
+          data = eweek7, 
+          lng = ~ Long,
+          lat = ~ Lat, 
+          radius = ~ log(ConfirmedCases + 1)+10, 
+          color = alpha("green",0.3), 
+          fillOpacity = ~ ifelse(ConfirmedCases > 0, 1, 0), 
+          stroke = FALSE, 
+          label = ~ paste0(Province.State, " ", Country.Region, ": ", ConfirmedCases), 
+          popup = ~ paste0("<b>", Province.State, " ", Country.Region, "</b><br>Confirmed Cases: ", ConfirmedCases)
+        ) %>% 
+        addCircleMarkers(
+          group = "WEEK 8", 
+          data = eweek8, 
+          lng = ~ Long,
+          lat = ~ Lat, 
+          radius = ~ log(ConfirmedCases + 1)+10, 
+          color = alpha("green",0.3), 
+          fillOpacity = ~ ifelse(ConfirmedCases > 0, 1, 0), 
+          stroke = FALSE, 
+          label = ~ paste0(Province.State, " ", Country.Region, ": ", ConfirmedCases), 
+          popup = ~ paste0("<b>", Province.State, " ", Country.Region, "</b><br>Confirmed Cases: ", ConfirmedCases)
+        ) %>% 
+        addCircleMarkers(
+          group = "WEEK 9", 
+          data = eweek9, 
+          lng = ~ Long,
+          lat = ~ Lat, 
+          radius = ~ log(ConfirmedCases + 1)+10, 
+          color = alpha("green",0.3), 
+          fillOpacity = ~ ifelse(ConfirmedCases > 0, 1, 0), 
+          stroke = FALSE, 
+          label = ~ paste0(Province.State, " ", Country.Region, ": ", ConfirmedCases), 
+          popup = ~ paste0("<b>", Province.State, " ", Country.Region, "</b><br>Confirmed Cases: ", ConfirmedCases)
+        ) %>% 
+        addCircleMarkers(
+          group = "WEEK 10", 
+          data = eweek10, 
+          lng = ~ Long,
+          lat = ~ Lat, 
+          radius = ~ log(ConfirmedCases + 1)+10, 
+          color = alpha("green",0.3), 
+          fillOpacity = ~ ifelse(ConfirmedCases > 0, 1, 0), 
+          stroke = FALSE, 
+          label = ~ paste0(Province.State, " ", Country.Region, ": ", ConfirmedCases), 
+          popup = ~ paste0("<b>", Province.State, " ", Country.Region, "</b><br>Confirmed Cases: ", ConfirmedCases)
+        ) %>%
+        addCircleMarkers(
+          group = "WEEK 11", 
+          data = eweek11, 
+          lng = ~ Long,
+          lat = ~ Lat, 
+          radius = ~ log(ConfirmedCases + 1)+10, 
+          color = alpha("green",0.3), 
+          fillOpacity = ~ ifelse(ConfirmedCases > 0, 1, 0), 
+          stroke = FALSE, 
+          label = ~ paste0(Province.State, " ", Country.Region, ": ", ConfirmedCases), 
+          popup = ~ paste0("<b>", Province.State, " ", Country.Region, "</b><br>Confirmed Cases: ", ConfirmedCases)
+        ) %>%
+        addCircleMarkers(
+          group = "WEEK 12", 
+          data = eweek12, 
+          lng = ~ Long,
+          lat = ~ Lat, 
+          radius = ~ log(ConfirmedCases + 1)+10, 
+          color = alpha("green",0.3), 
+          fillOpacity = ~ ifelse(ConfirmedCases > 0, 1, 0), 
+          stroke = FALSE, 
+          label = ~ paste0(Province.State, " ", Country.Region, ": ", ConfirmedCases), 
+          popup = ~ paste0("<b>", Province.State, " ", Country.Region, "</b><br>Confirmed Cases: ", ConfirmedCases)
+        )%>%
+        addCircleMarkers(
+          group = "WEEK 13", 
+          data = eweek13, 
+          lng = ~ Long,
+          lat = ~ Lat, 
+          radius = ~ log(ConfirmedCases + 1)+10, 
+          color = alpha("green",0.3), 
+          fillOpacity = ~ ifelse(ConfirmedCases > 0, 1, 0), 
+          stroke = FALSE, 
+          label = ~ paste0(Province.State, " ", Country.Region, ": ", ConfirmedCases), 
+          popup = ~ paste0("<b>", Province.State, " ", Country.Region, "</b><br>Confirmed Cases: ", ConfirmedCases)
+        ) %>%
+        addCircleMarkers(
+          group = "WEEK 14", 
+          data = eweek14, 
+          lng = ~ Long,
+          lat = ~ Lat, 
+          radius = ~ log(ConfirmedCases + 1)+10, 
+          color = alpha("green",0.3), 
+          fillOpacity = ~ ifelse(ConfirmedCases > 0, 1, 0), 
+          stroke = FALSE, 
+          label = ~ paste0(Province.State, " ", Country.Region, ": ", ConfirmedCases), 
+          popup = ~ paste0("<b>", Province.State, " ", Country.Region, "</b><br>Confirmed Cases: ", ConfirmedCases)
+        ) %>%
+        addLayersControl(
+          baseGroups = c("WEEK 1", "WEEK 2", "WEEK 3", "WEEK 4", "WEEK 5","WEEK 6","WEEK 7", "WEEK 8", "WEEK 9", "WEEK 10", "WEEK 11","WEEK 12","WEEK 13","WEEK 14"), 
+          position = "bottomright",
+          options = layersControlOptions(collapsed = FALSE)
+        )
+    }
+    else if (contsel=='asia'){
+      carte=leaflet() %>% 
+        addProviderTiles("CartoDB") %>% 
+        setView(lng = 122.3059, lat = 9.332, zoom = 2) %>% 
+        addCircleMarkers(
+          group = "WEEK 1", 
+          data = asweek1, 
+          lng = ~ Long,
+          lat = ~ Lat, 
+          radius = ~ log(ConfirmedCases +1)+10, 
+          color = alpha("red",0.3), 
+          fillOpacity = ~ ifelse(ConfirmedCases > 0,1,0), 
+          stroke = FALSE, opacity = 0.1,
+          label = ~ paste0(Province.State, " ", Country.Region, ": ", ConfirmedCases), 
+          popup = ~ paste0("<b>", Province.State, " ", Country.Region, "</b><br>Confirmed Cases: ", ConfirmedCases)
+        ) %>% 
+        addCircleMarkers(
+          group = "WEEK 2", 
+          data = asweek2, 
+          lng = ~ Long,
+          lat = ~ Lat, 
+          radius = ~ log(ConfirmedCases + 1)+10, 
+          color = alpha("red",0.3), 
+          fillOpacity = ~ ifelse(ConfirmedCases > 0, 1, 0), 
+          stroke = FALSE, 
+          label = ~ paste0(Province.State, " ", Country.Region, ": ", ConfirmedCases), 
+          popup = ~ paste0("<b>", Province.State, " ", Country.Region, "</b><br>Confirmed Cases: ", ConfirmedCases)
+        ) %>% 
+        addCircleMarkers(
+          group = "WEEK 3", 
+          data = asweek3, 
+          lng = ~ Long,
+          lat = ~ Lat, 
+          radius = ~ log(ConfirmedCases + 1)+10, 
+          color = alpha("red",0.3), 
+          fillOpacity = ~ ifelse(ConfirmedCases > 0, 1, 0), 
+          stroke = FALSE, 
+          label = ~ paste0(Province.State, " ", Country.Region, ": ", ConfirmedCases), 
+          popup = ~ paste0("<b>", Province.State, " ", Country.Region, "</b><br>Confirmed Cases: ", ConfirmedCases)
+        ) %>% 
+        addCircleMarkers(
+          group = "WEEK 4", 
+          data = asweek4, 
+          lng = ~ Long,
+          lat = ~ Lat, 
+          radius = ~ log(ConfirmedCases + 1)+10, 
+          color = alpha("red",0.3), 
+          fillOpacity = ~ ifelse(ConfirmedCases > 0, 1, 0), 
+          stroke = FALSE, 
+          label = ~ paste0(Province.State, " ", Country.Region, ": ", ConfirmedCases), 
+          popup = ~ paste0("<b>", Province.State, " ", Country.Region, "</b><br>Confirmed Cases: ", ConfirmedCases)
+        ) %>% 
+        addCircleMarkers(
+          group = "WEEK 5", 
+          data = asweek5, 
+          lng = ~ Long,
+          lat = ~ Lat, 
+          radius = ~ log(ConfirmedCases + 1)+10, 
+          color = alpha("red",0.3), 
+          fillOpacity = ~ ifelse(ConfirmedCases > 0, 1, 0), 
+          stroke = FALSE, 
+          label = ~ paste0(Province.State, " ", Country.Region, ": ", ConfirmedCases), 
+          popup = ~ paste0("<b>", Province.State, " ", Country.Region, "</b><br>Confirmed Cases: ", ConfirmedCases)
+        ) %>% 
+        addCircleMarkers(
+          group = "WEEK 6", 
+          data = asweek6, 
+          lng = ~ Long,
+          lat = ~ Lat, 
+          radius = ~ log(ConfirmedCases + 1)+10, 
+          color = alpha("red",0.3), 
+          fillOpacity = ~ ifelse(ConfirmedCases > 0, 1, 0), 
+          stroke = FALSE, 
+          label = ~ paste0(Province.State, " ", Country.Region, ": ", ConfirmedCases), 
+          popup = ~ paste0("<b>", Province.State, " ", Country.Region, "</b><br>Confirmed Cases: ", ConfirmedCases)
+        ) %>% 
+        addCircleMarkers(
+          group = "WEEK 7", 
+          data = asweek7, 
+          lng = ~ Long,
+          lat = ~ Lat, 
+          radius = ~ log(ConfirmedCases + 1)+10, 
+          color = alpha("red",0.3), 
+          fillOpacity = ~ ifelse(ConfirmedCases > 0, 1, 0), 
+          stroke = FALSE, 
+          label = ~ paste0(Province.State, " ", Country.Region, ": ", ConfirmedCases), 
+          popup = ~ paste0("<b>", Province.State, " ", Country.Region, "</b><br>Confirmed Cases: ", ConfirmedCases)
+        ) %>% 
+        addCircleMarkers(
+          group = "WEEK 8", 
+          data = asweek8, 
+          lng = ~ Long,
+          lat = ~ Lat, 
+          radius = ~ log(ConfirmedCases + 1)+10, 
+          color = alpha("red",0.3), 
+          fillOpacity = ~ ifelse(ConfirmedCases > 0, 1, 0), 
+          stroke = FALSE, 
+          label = ~ paste0(Province.State, " ", Country.Region, ": ", ConfirmedCases), 
+          popup = ~ paste0("<b>", Province.State, " ", Country.Region, "</b><br>Confirmed Cases: ", ConfirmedCases)
+        ) %>% 
+        addCircleMarkers(
+          group = "WEEK 9", 
+          data = asweek9, 
+          lng = ~ Long,
+          lat = ~ Lat, 
+          radius = ~ log(ConfirmedCases + 1)+10, 
+          color = alpha("red",0.3), 
+          fillOpacity = ~ ifelse(ConfirmedCases > 0, 1, 0), 
+          stroke = FALSE, 
+          label = ~ paste0(Province.State, " ", Country.Region, ": ", ConfirmedCases), 
+          popup = ~ paste0("<b>", Province.State, " ", Country.Region, "</b><br>Confirmed Cases: ", ConfirmedCases)
+        ) %>% 
+        addCircleMarkers(
+          group = "WEEK 10", 
+          data = asweek10, 
+          lng = ~ Long,
+          lat = ~ Lat, 
+          radius = ~ log(ConfirmedCases + 1)+10, 
+          color = "lightblue", 
+          fillOpacity = ~ ifelse(ConfirmedCases > 0, 1, 0), 
+          stroke = FALSE, 
+          label = ~ paste0(Province.State, " ", Country.Region, ": ", ConfirmedCases), 
+          popup = ~ paste0("<b>", Province.State, " ", Country.Region, "</b><br>Confirmed Cases: ", ConfirmedCases)
+        ) %>%
+        addCircleMarkers(
+          group = "WEEK 11", 
+          data = asweek11, 
+          lng = ~ Long,
+          lat = ~ Lat, 
+          radius = ~ log(ConfirmedCases + 1)+10, 
+          color = alpha("red",0.3), 
+          fillOpacity = ~ ifelse(ConfirmedCases > 0, 1, 0), 
+          stroke = FALSE, 
+          label = ~ paste0(Province.State, " ", Country.Region, ": ", ConfirmedCases), 
+          popup = ~ paste0("<b>", Province.State, " ", Country.Region, "</b><br>Confirmed Cases: ", ConfirmedCases)
+        ) %>%
+        addCircleMarkers(
+          group = "WEEK 12", 
+          data = asweek12, 
+          lng = ~ Long,
+          lat = ~ Lat, 
+          radius = ~ log(ConfirmedCases + 1)+10, 
+          color = alpha("red",0.3), 
+          fillOpacity = ~ ifelse(ConfirmedCases > 0, 1, 0), 
+          stroke = FALSE, 
+          label = ~ paste0(Province.State, " ", Country.Region, ": ", ConfirmedCases), 
+          popup = ~ paste0("<b>", Province.State, " ", Country.Region, "</b><br>Confirmed Cases: ", ConfirmedCases)
+        )  %>%
+        addCircleMarkers(
+          group = "WEEK 13", 
+          data = asweek13, 
+          lng = ~ Long,
+          lat = ~ Lat, 
+          radius = ~ log(ConfirmedCases + 1)+10, 
+          color = alpha("red",0.3), 
+          fillOpacity = ~ ifelse(ConfirmedCases > 0, 1, 0), 
+          stroke = FALSE, 
+          label = ~ paste0(Province.State, " ", Country.Region, ": ", ConfirmedCases), 
+          popup = ~ paste0("<b>", Province.State, " ", Country.Region, "</b><br>Confirmed Cases: ", ConfirmedCases)
+        ) %>%
+        addCircleMarkers(
+          group = "WEEK 14", 
+          data = asweek14, 
+          lng = ~ Long,
+          lat = ~ Lat, 
+          radius = ~ log(ConfirmedCases + 1)+10, 
+          color = alpha("red",0.3), 
+          fillOpacity = ~ ifelse(ConfirmedCases > 0, 1, 0), 
+          stroke = FALSE, 
+          label = ~ paste0(Province.State, " ", Country.Region, ": ", ConfirmedCases), 
+          popup = ~ paste0("<b>", Province.State, " ", Country.Region, "</b><br>Confirmed Cases: ", ConfirmedCases)
+        )%>%
+        addLayersControl(
+         baseGroups = c("WEEK 1", "WEEK 2", "WEEK 3", "WEEK 4", "WEEK 5","WEEK 6","WEEK 7", "WEEK 8", "WEEK 9", "WEEK 10", "WEEK 11","WEEK 12","WEEK 13","WEEK 14"), 
+          position = "bottomright",
+          options = layersControlOptions(collapsed = FALSE)
+        )
+    }
+    else if (contsel=='americas'){
+      carte=leaflet() %>% 
+        addProviderTiles("CartoDB") %>% 
+        setView(lng = -95.281184, lat = 16.636192, zoom = 1.5) %>% 
+        addCircleMarkers(
+          group = "WEEK 1", 
+          data = aweek1, 
+          lng = ~ Long,
+          lat = ~ Lat, 
+          radius = ~ log(ConfirmedCases + 1)+10, 
+          color = alpha("blue",0.3), 
+          fillOpacity = ~ ifelse(ConfirmedCases > 0,1,0), 
+          stroke = FALSE, opacity = 0.1,
+          label = ~ paste0(Province.State, " ", Country.Region, ": ", ConfirmedCases), 
+          popup = ~ paste0("<b>", Province.State, " ", Country.Region, "</b><br>Confirmed Cases: ", ConfirmedCases)
+        ) %>% 
+        addCircleMarkers(
+          group = "WEEK 2", 
+          data = aweek2, 
+          lng = ~ Long,
+          lat = ~ Lat, 
+          radius = ~ log(ConfirmedCases + 1)+10, 
+          color = alpha("blue",0.3), 
+          fillOpacity = ~ ifelse(ConfirmedCases > 0, 1, 0), 
+          stroke = FALSE, 
+          label = ~ paste0(Province.State, " ", Country.Region, ": ", ConfirmedCases), 
+          popup = ~ paste0("<b>", Province.State, " ", Country.Region, "</b><br>Confirmed Cases: ", ConfirmedCases)
+        ) %>% 
+        addCircleMarkers(
+          group = "WEEK 3", 
+          data = aweek3, 
+          lng = ~ Long,
+          lat = ~ Lat, 
+          radius = ~ log(ConfirmedCases + 1)+10, 
+          color = alpha("blue",0.3), 
+          fillOpacity = ~ ifelse(ConfirmedCases > 0, 1, 0), 
+          stroke = FALSE, 
+          label = ~ paste0(Province.State, " ", Country.Region, ": ", ConfirmedCases), 
+          popup = ~ paste0("<b>", Province.State, " ", Country.Region, "</b><br>Confirmed Cases: ", ConfirmedCases)
+        ) %>% 
+        addCircleMarkers(
+          group = "WEEK 4", 
+          data = aweek4, 
+          lng = ~ Long,
+          lat = ~ Lat, 
+          radius = ~ log(ConfirmedCases + 1)+10, 
+          color = alpha("blue",0.3), 
+          fillOpacity = ~ ifelse(ConfirmedCases > 0, 1, 0), 
+          stroke = FALSE, 
+          label = ~ paste0(Province.State, " ", Country.Region, ": ", ConfirmedCases), 
+          popup = ~ paste0("<b>", Province.State, " ", Country.Region, "</b><br>Confirmed Cases: ", ConfirmedCases)
+        ) %>% 
+        addCircleMarkers(
+          group = "WEEK 5", 
+          data = aweek5, 
+          lng = ~ Long,
+          lat = ~ Lat, 
+          radius = ~ log(ConfirmedCases + 1)+10, 
+          color = alpha("blue",0.3), 
+          fillOpacity = ~ ifelse(ConfirmedCases > 0, 1, 0), 
+          stroke = FALSE, 
+          label = ~ paste0(Province.State, " ", Country.Region, ": ", ConfirmedCases), 
+          popup = ~ paste0("<b>", Province.State, " ", Country.Region, "</b><br>Confirmed Cases: ", ConfirmedCases)
+        ) %>% 
+        addCircleMarkers(
+          group = "WEEK 6", 
+          data = aweek6, 
+          lng = ~ Long,
+          lat = ~ Lat, 
+          radius = ~ log(ConfirmedCases + 1)+10, 
+          color = alpha("blue",0.3), 
+          fillOpacity = ~ ifelse(ConfirmedCases > 0, 1, 0), 
+          stroke = FALSE, 
+          label = ~ paste0(Province.State, " ", Country.Region, ": ", ConfirmedCases), 
+          popup = ~ paste0("<b>", Province.State, " ", Country.Region, "</b><br>Confirmed Cases: ", ConfirmedCases)
+        ) %>% 
+        addCircleMarkers(
+          group = "WEEK 7", 
+          data = aweek7, 
+          lng = ~ Long,
+          lat = ~ Lat, 
+          radius = ~ log(ConfirmedCases + 1)+10, 
+          color = alpha("blue",0.3), 
+          fillOpacity = ~ ifelse(ConfirmedCases > 0, 1, 0), 
+          stroke = FALSE, 
+          label = ~ paste0(Province.State, " ", Country.Region, ": ", ConfirmedCases), 
+          popup = ~ paste0("<b>", Province.State, " ", Country.Region, "</b><br>Confirmed Cases: ", ConfirmedCases)
+        ) %>% 
+        addCircleMarkers(
+          group = "WEEK 8", 
+          data = aweek8, 
+          lng = ~ Long,
+          lat = ~ Lat, 
+          radius = ~ log(ConfirmedCases + 1)+10, 
+          color = alpha("blue",0.3), 
+          fillOpacity = ~ ifelse(ConfirmedCases > 0, 1, 0), 
+          stroke = FALSE, 
+          label = ~ paste0(Province.State, " ", Country.Region, ": ", ConfirmedCases), 
+          popup = ~ paste0("<b>", Province.State, " ", Country.Region, "</b><br>Confirmed Cases: ", ConfirmedCases)
+        ) %>% 
+        addCircleMarkers(
+          group = "WEEK 9", 
+          data = aweek9, 
+          lng = ~ Long,
+          lat = ~ Lat, 
+          radius = ~ log(ConfirmedCases + 1)+10, 
+          color = alpha("blue",0.3), 
+          fillOpacity = ~ ifelse(ConfirmedCases > 0, 1, 0), 
+          stroke = FALSE, 
+          label = ~ paste0(Province.State, " ", Country.Region, ": ", ConfirmedCases), 
+          popup = ~ paste0("<b>", Province.State, " ", Country.Region, "</b><br>Confirmed Cases: ", ConfirmedCases)
+        ) %>% 
+        addCircleMarkers(
+          group = "WEEK 10", 
+          data = aweek10, 
+          lng = ~ Long,
+          lat = ~ Lat, 
+          radius = ~ log(ConfirmedCases + 1)+10, 
+          color = alpha("blue",0.3), 
+          fillOpacity = ~ ifelse(ConfirmedCases > 0, 1, 0), 
+          stroke = FALSE, 
+          label = ~ paste0(Province.State, " ", Country.Region, ": ", ConfirmedCases), 
+          popup = ~ paste0("<b>", Province.State, " ", Country.Region, "</b><br>Confirmed Cases: ", ConfirmedCases)
+        ) %>%
+        addCircleMarkers(
+          group = "WEEK 11", 
+          data = aweek11, 
+          lng = ~ Long,
+          lat = ~ Lat, 
+          radius = ~ log(ConfirmedCases + 1)+10, 
+          color = alpha("blue",0.3), 
+          fillOpacity = ~ ifelse(ConfirmedCases > 0, 1, 0), 
+          stroke = FALSE, 
+          label = ~ paste0(Province.State, " ", Country.Region, ": ", ConfirmedCases), 
+          popup = ~ paste0("<b>", Province.State, " ", Country.Region, "</b><br>Confirmed Cases: ", ConfirmedCases)
+        ) %>%
+        addCircleMarkers(
+          group = "WEEK 12", 
+          data = aweek12, 
+          lng = ~ Long,
+          lat = ~ Lat, 
+          radius = ~ log(ConfirmedCases + 1)+10, 
+          color = alpha("blue",0.3), 
+          fillOpacity = ~ ifelse(ConfirmedCases > 0, 1, 0), 
+          stroke = FALSE, 
+          label = ~ paste0(Province.State, " ", Country.Region, ": ", ConfirmedCases), 
+          popup = ~ paste0("<b>", Province.State, " ", Country.Region, "</b><br>Confirmed Cases: ", ConfirmedCases)
+        ) %>%
+        addCircleMarkers(
+          group = "WEEK 13", 
+          data = aweek13, 
+          lng = ~ Long,
+          lat = ~ Lat, 
+          radius = ~ log(ConfirmedCases + 1)+10, 
+          color = alpha("blue",0.3), 
+          fillOpacity = ~ ifelse(ConfirmedCases > 0, 1, 0), 
+          stroke = FALSE, 
+          label = ~ paste0(Province.State, " ", Country.Region, ": ", ConfirmedCases), 
+          popup = ~ paste0("<b>", Province.State, " ", Country.Region, "</b><br>Confirmed Cases: ", ConfirmedCases)
+        ) %>%
+        addCircleMarkers(
+          group = "WEEK 14", 
+          data = aweek14, 
+          lng = ~ Long,
+          lat = ~ Lat, 
+          radius = ~ log(ConfirmedCases + 1)+10, 
+          color = alpha("blue",0.3), 
+          fillOpacity = ~ ifelse(ConfirmedCases > 0, 1, 0), 
+          stroke = FALSE, 
+          label = ~ paste0(Province.State, " ", Country.Region, ": ", ConfirmedCases), 
+          popup = ~ paste0("<b>", Province.State, " ", Country.Region, "</b><br>Confirmed Cases: ", ConfirmedCases)
+        )%>%
+        addLayersControl(
+          baseGroups = c("WEEK 1", "WEEK 2", "WEEK 3", "WEEK 4", "WEEK 5","WEEK 6","WEEK 7", "WEEK 8", "WEEK 9", "WEEK 10", "WEEK 11","WEEK 12","WEEK 13","WEEK 14"), 
+          position = "bottomright",
+          options = layersControlOptions(collapsed = FALSE)
+        )
+    }
+    else if (contsel=='oceania'){
+      carte=leaflet() %>% 
+        addProviderTiles("CartoDB") %>% 
+        setView(lng = 140, lat = -30, zoom = 3) %>% 
+        addCircleMarkers(
+          group = "WEEK 1", 
+          data = aoweek1, 
+          lng = ~ Long,
+          lat = ~ Lat, 
+          radius = ~ log(ConfirmedCases + 1)+10, 
+          color = alpha("purple",0.3), 
+          fillOpacity = ~ ifelse(ConfirmedCases > 0,1,0), 
+          stroke = FALSE, opacity = 0.1,
+          label = ~ paste0(Province.State, " ", Country.Region, ": ", ConfirmedCases), 
+          popup = ~ paste0("<b>", Province.State, " ", Country.Region, "</b><br>Confirmed Cases: ", ConfirmedCases)
+        ) %>% 
+        addCircleMarkers(
+          group = "WEEK 2", 
+          data = aoweek2, 
+          lng = ~ Long,
+          lat = ~ Lat, 
+          radius = ~ log(ConfirmedCases + 1)+10, 
+          color =alpha("purple",0.3), 
+          fillOpacity = ~ ifelse(ConfirmedCases > 0, 1, 0), 
+          stroke = FALSE, 
+          label = ~ paste0(Province.State, " ", Country.Region, ": ", ConfirmedCases), 
+          popup = ~ paste0("<b>", Province.State, " ", Country.Region, "</b><br>Confirmed Cases: ", ConfirmedCases)
+        ) %>% 
+        addCircleMarkers(
+          group = "WEEK 3", 
+          data = aoweek3, 
+          lng = ~ Long,
+          lat = ~ Lat, 
+          radius = ~ log(ConfirmedCases + 1)+10, 
+          color = alpha("purple",0.3), 
+          fillOpacity = ~ ifelse(ConfirmedCases > 0, 1, 0), 
+          stroke = FALSE, 
+          label = ~ paste0(Province.State, " ", Country.Region, ": ", ConfirmedCases), 
+          popup = ~ paste0("<b>", Province.State, " ", Country.Region, "</b><br>Confirmed Cases: ", ConfirmedCases)
+        ) %>% 
+        addCircleMarkers(
+          group = "WEEK 4", 
+          data = aoweek4, 
+          lng = ~ Long,
+          lat = ~ Lat, 
+          radius = ~ log(ConfirmedCases + 1)+10, 
+          color = alpha("purple",0.3), 
+          fillOpacity = ~ ifelse(ConfirmedCases > 0, 1, 0), 
+          stroke = FALSE, 
+          label = ~ paste0(Province.State, " ", Country.Region, ": ", ConfirmedCases), 
+          popup = ~ paste0("<b>", Province.State, " ", Country.Region, "</b><br>Confirmed Cases: ", ConfirmedCases)
+        ) %>% 
+        addCircleMarkers(
+          group = "WEEK 5", 
+          data = aoweek5, 
+          lng = ~ Long,
+          lat = ~ Lat, 
+          radius = ~ log(ConfirmedCases + 1)+10, 
+          color = alpha("purple",0.3), 
+          fillOpacity = ~ ifelse(ConfirmedCases > 0, 1, 0), 
+          stroke = FALSE, 
+          label = ~ paste0(Province.State, " ", Country.Region, ": ", ConfirmedCases), 
+          popup = ~ paste0("<b>", Province.State, " ", Country.Region, "</b><br>Confirmed Cases: ", ConfirmedCases)
+        ) %>% 
+        addCircleMarkers(
+          group = "WEEK 6", 
+          data = aoweek6, 
+          lng = ~ Long,
+          lat = ~ Lat, 
+          radius = ~ log(ConfirmedCases + 1)+10, 
+          color = alpha("purple",0.3), 
+          fillOpacity = ~ ifelse(ConfirmedCases > 0, 1, 0), 
+          stroke = FALSE, 
+          label = ~ paste0(Province.State, " ", Country.Region, ": ", ConfirmedCases), 
+          popup = ~ paste0("<b>", Province.State, " ", Country.Region, "</b><br>Confirmed Cases: ", ConfirmedCases)
+        ) %>% 
+        addCircleMarkers(
+          group = "WEEK 7", 
+          data = aoweek7, 
+          lng = ~ Long,
+          lat = ~ Lat, 
+          radius = ~ log(ConfirmedCases + 1)+10, 
+          color = alpha("purple",0.3), 
+          fillOpacity = ~ ifelse(ConfirmedCases > 0, 1, 0), 
+          stroke = FALSE, 
+          label = ~ paste0(Province.State, " ", Country.Region, ": ", ConfirmedCases), 
+          popup = ~ paste0("<b>", Province.State, " ", Country.Region, "</b><br>Confirmed Cases: ", ConfirmedCases)
+        ) %>% 
+        addCircleMarkers(
+          group = "WEEK 8", 
+          data = aoweek8, 
+          lng = ~ Long,
+          lat = ~ Lat, 
+          radius = ~ log(ConfirmedCases + 1)+10, 
+          color = alpha("purple",0.3), 
+          fillOpacity = ~ ifelse(ConfirmedCases > 0, 1, 0), 
+          stroke = FALSE, 
+          label = ~ paste0(Province.State, " ", Country.Region, ": ", ConfirmedCases), 
+          popup = ~ paste0("<b>", Province.State, " ", Country.Region, "</b><br>Confirmed Cases: ", ConfirmedCases)
+        ) %>% 
+        addCircleMarkers(
+          group = "WEEK 9", 
+          data = aoweek9, 
+          lng = ~ Long,
+          lat = ~ Lat, 
+          radius = ~ log(ConfirmedCases + 1)+10, 
+          color = alpha("purple",0.3), 
+          fillOpacity = ~ ifelse(ConfirmedCases > 0, 1, 0), 
+          stroke = FALSE, 
+          label = ~ paste0(Province.State, " ", Country.Region, ": ", ConfirmedCases), 
+          popup = ~ paste0("<b>", Province.State, " ", Country.Region, "</b><br>Confirmed Cases: ", ConfirmedCases)
+        ) %>% 
+        addCircleMarkers(
+          group = "WEEK 10", 
+          data = aoweek10, 
+          lng = ~ Long,
+          lat = ~ Lat, 
+          radius = ~ log(ConfirmedCases + 1)+10, 
+          color = alpha("purple",0.3), 
+          fillOpacity = ~ ifelse(ConfirmedCases > 0, 1, 0), 
+          stroke = FALSE, 
+          label = ~ paste0(Province.State, " ", Country.Region, ": ", ConfirmedCases), 
+          popup = ~ paste0("<b>", Province.State, " ", Country.Region, "</b><br>Confirmed Cases: ", ConfirmedCases)
+        ) %>%
+        addCircleMarkers(
+          group = "WEEK 11", 
+          data = aoweek11, 
+          lng = ~ Long,
+          lat = ~ Lat, 
+          radius = ~ log(ConfirmedCases + 1)+10, 
+          color = alpha("purple",0.3), 
+          fillOpacity = ~ ifelse(ConfirmedCases > 0, 1, 0), 
+          stroke = FALSE, 
+          label = ~ paste0(Province.State, " ", Country.Region, ": ", ConfirmedCases), 
+          popup = ~ paste0("<b>", Province.State, " ", Country.Region, "</b><br>Confirmed Cases: ", ConfirmedCases)
+        ) %>%
+        addCircleMarkers(
+          group = "WEEK 12", 
+          data = aoweek12, 
+          lng = ~ Long,
+          lat = ~ Lat, 
+          radius = ~ log(ConfirmedCases + 1)+10, 
+          color = alpha("purple",0.3), 
+          fillOpacity = ~ ifelse(ConfirmedCases > 0, 1, 0), 
+          stroke = FALSE, 
+          label = ~ paste0(Province.State, " ", Country.Region, ": ", ConfirmedCases), 
+          popup = ~ paste0("<b>", Province.State, " ", Country.Region, "</b><br>Confirmed Cases: ", ConfirmedCases)
+        )%>%
+        addCircleMarkers(
+          group = "WEEK 13", 
+          data = aoweek13, 
+          lng = ~ Long,
+          lat = ~ Lat, 
+          radius = ~ log(ConfirmedCases + 1)+10, 
+          color = alpha("purple",0.3), 
+          fillOpacity = ~ ifelse(ConfirmedCases > 0, 1, 0), 
+          stroke = FALSE, 
+          label = ~ paste0(Province.State, " ", Country.Region, ": ", ConfirmedCases), 
+          popup = ~ paste0("<b>", Province.State, " ", Country.Region, "</b><br>Confirmed Cases: ", ConfirmedCases)
+        ) %>%
+        addCircleMarkers(
+          group = "WEEK 14", 
+          data = aoweek14, 
+          lng = ~ Long,
+          lat = ~ Lat, 
+          radius = ~ log(ConfirmedCases + 1)+10, 
+          color = alpha("purple",0.3), 
+          fillOpacity = ~ ifelse(ConfirmedCases > 0, 1, 0), 
+          stroke = FALSE, 
+          label = ~ paste0(Province.State, " ", Country.Region, ": ", ConfirmedCases), 
+          popup = ~ paste0("<b>", Province.State, " ", Country.Region, "</b><br>Confirmed Cases: ", ConfirmedCases)
+        )  %>%
+        addLayersControl(
+          baseGroups = c("WEEK 1", "WEEK 2", "WEEK 3", "WEEK 4", "WEEK 5","WEEK 6","WEEK 7", "WEEK 8", "WEEK 9", "WEEK 10", "WEEK 11","WEEK 12","WEEK 13","WEEK 14"), 
+          position = "bottomright",
+          options = layersControlOptions(collapsed = FALSE)
+        )
+    }})
+```
+
+
+
+
+MultiVariable Analysis
+=======================================================================
+Inputs {.sidebar}
+-----------------------------------------------------------------------
+~MUST KNOW : ~
+
+Our difficulty was in finding informations about sexe, age and symptomes.
+these results was givin from the analysis of a DataSet that containes 1134 Observations from different Countries, 
+We've assumed that these Observations were taken from the same place.
+Further more we will consider that the sample is a representative sample for all infected cases.
+
+~INTERPRETATIONS : ~
+
+~AGE AND SEXE :~
+
+Let's look at on particular category of the age group adults and adolescents.
+There are 131 adolescents, in the data set. 56% of them are Males and 44% are Females.
+Adults are 7.77X more likely to GET INFECTED 
+
+~SYMPTOMS :~
+
+There are 7 syptoms as you can see in the Barplot but the most accurate symptom is FEVER. So we can say that most commun or frequent symptom that appears on infected people is FEVER.
+
+Row   
+-----------------------------------------------------------------------
+
+### GENERAL VISUALIZATION  
+
+```{r}
+df1=df[c(1,2,7)]
+names(df)[2]=paste('Sexe')
+df$age=round(df$age)
+p <- ggplot(df[1:2], aes(x =Sexe, fill =Sexe)) +
+  geom_bar(stat='count',show.legend = FALSE)+theme(legend.position = "none")
+p=ggplotly(p)
+pp2 <- qplot(x=Sexe, y=age, data=df, 
+           geom=c("boxplot", "jitter"),alpha=0.1, main="Age vs.Gender",   
+           xlab="Gender", ylab="Age") + 
+            geom_hline(yintercept  = 43.95, color="blue", 
+                       label="Life Exp. (M)") + 
+            geom_hline(yintercept  = 44.64, colour="red",  
+                       label="Life Exp. (F)")
+pp2=ggplotly(pp2)
+figure <- subplot(p, pp2)
+figure
+
+
+```
+
+### AGE CATEGORICAL PLOT 
+
+```{r}
+
+# Let's add a new categorical variable for adult/adolescents.
+df1$age_group <- "adult"
+df1$age_group[df1$age < 25] <- "teens"
+# 0.11% of the total saved cases were below 25y
+#  the adolescents. population is much smaller than the adult one. 
+age_group.sex<- table(df1$age_group, df1$sex)
+
+
+age_group.sex.prop <- prop.table(age_group.sex, 1)
+
+# Is the difference in sex rates significant? Let's see with a permutation test.
+adults.sex <- age_group.sex[3]
+children.sex <- age_group.sex[4]
+observed <- adults.sex/ children.sex   # abults are 7.77X more likely to GET INFECTED 
+
+counts<-table(df1$age_group,df1$sex);
+men.tgrp <-counts[4]/(counts[3]+counts[4]);
+women.tgrp<-counts[2]/(counts[1]+counts[2]);
+
+# G
+lol=data.frame(counts)
+names(lol)[1]='GROUPE'
+names(lol)[2]='SEXE'
+names(lol)[3]='COUNT'
+# S
+groupeage=ggplot(lol, aes(fill=GROUPE, y=COUNT, x=SEXE)) + 
+    geom_bar(position="stack", stat="identity") +
+    scale_fill_viridis(discrete = T) +
+    ggtitle("GROUPING BY AGE ") +
+    xlab("SEXE")+ylab("COUNTS")
+ggplotly(groupeage)
+
+```
+
+Row  
+-----------------------------------------------------------------------
+
+### SYMPTOMES DISTRIBUTION  
+
+```{r}
+x=data.frame(count(df$symptoms))
+x=x[x$freq>5,]
+levels(x$x)[7]='heavy chest'
+lol1=data.frame(x)
+names(lol1)[1]='SYMPTOMS'
+names(lol1)[2]='COUNTS'
+barsymp=ggplot(data=lol1, aes(x=SYMPTOMS, y=COUNTS)) +
+  geom_bar(stat="identity", fill="lightblue")+
+  theme_minimal()
+ggplotly(barsymp)
+```
+
+### SEX X AGE HISTOGRAM 
+
+```{r}
+names(df)[2]=paste('Sexe')
+mu <- ddply(df, "Sexe", summarise, grp.mean=mean(age))
+# Ajouter le trait de la moyenne
+boxx<-ggplot(df[1:2], aes(x=age, color=Sexe)) +
+  geom_histogram(fill="white", position="dodge")+
+  geom_vline(data=mu, aes(xintercept=grp.mean, color=Sexe),
+             linetype="dashed")+
+  theme(legend.position="top")
+ggplotly(boxx)
+
+```
+
+
+
+
+WORLD {data-navmenu="RECOVERY Cases Analysis"}
+=====================================
+
+ROW
+--------------------
+### RECOVERIES TS PLOTTING
+```{r}
+
+world_r <- recovery_dfr[ ,5:(ncol(recovery_dfr)-1)]
+date_gl_r = colnames( world_r )
+date_gl_r = as.Date(date_gl_r, '%m/%d/%y')
+world_r <- colSums(world_r)
+world_r <- as.vector(world_r)
+# transformation serie temporelle : 
+global_ts_r = xts(x = world_r, order.by = date_gl_r)
+
+
+# Finally the plot
+rtsplot=dygraph(global_ts_r) %>%
+  dyOptions(labelsUTC = TRUE, fillGraph=TRUE, fillAlpha=0.1, drawGrid = FALSE, colors="#69b3a2") %>%
+  dyRangeSelector() %>%
+  dyCrosshair(direction = "vertical") %>%
+  dyHighlight(highlightCircleSize = 5, highlightSeriesBackgroundAlpha = 0.2, hideOnMouseOut = FALSE)  %>%
+  dyRoller(rollPeriod = 1)
+rtsplot
+```
+
+
+### RECOVERIES BY CONTINENT
+```{r}
+world_r <- recovery_dfr[ ,5:(ncol(recovery_dfr))]
+bycont=aggregate(recovery_dfr[ncol(recovery_dfr)-1], by=list(Category=recovery_dfr$continent), FUN=sum)
+names(bycont)[1]=paste('CONTINENT')
+names(bycont)[2]=paste('TOTALE')
+ggcont=ggplot(data=bycont, aes(x=CONTINENT, y=TOTALE)) +
+  geom_bar(stat="identity", fill="lightgreen")+
+  theme_minimal()
+ggplotly(ggcont)
+
+```
+
+
+### TS PLOTTING BY CONTINENT
+```{r}
+#### GLOBAL ####
+world_r <- recovery_dfr[ ,5:(ncol(recovery_dfr)-1)]
+date_gl_r = colnames( world_r )
+date_gl_r = as.Date(date_gl_r, '%m/%d/%y')
+world_r <- colSums(world_r)
+world_r <- as.vector(world_r)
+GLOBAL. = xts(x = world_r, order.by = date_gl_r)
+
+#### africa ####
+afst <- africar[ ,5:(ncol(africar)-1)]
+date_af_r = colnames( afst )
+date_af_r = as.Date(date_af_r, '%m/%d/%y')
+afst <- colSums(afst)
+afst <- as.vector(afst)
+# transformation serie temporelle : 
+AFRICA. = xts(x = afst, order.by = date_af_r)
+#### europe ####
+eust <- europer[ ,5:(ncol(europer)-1)]
+date_eu_r = colnames( eust )
+date_eu_r = as.Date(date_eu_r, '%m/%d/%y')
+eust <- colSums(eust)
+eust <- as.vector(eust)
+# transformation serie temporelle : 
+EUROPE. = xts(x = eust, order.by = date_eu_r)
+#### AISIA ####
+aist <- asier[ ,5:(ncol(asier)-1)]
+date_as_r = colnames( aist )
+date_as_r = as.Date(date_as_r, '%m/%d/%y')
+aist <- colSums(aist)
+aist <- as.vector(aist)
+# transformation serie temporelle : 
+ASIA. = xts(x = aist, order.by = date_as_r)
+#### americas ####
+amst <- americasr[ ,5:(ncol(americasr)-1)]
+date_am_r = colnames( amst )
+date_am_r = as.Date(date_am_r, '%m/%d/%y')
+amst <- colSums(amst)
+amst <- as.vector(amst)
+# transformation serie temporelle : 
+AMERICAS. = xts(x = amst, order.by = date_am_r)
+#### oceania ####
+ocst <- oceaniar[ ,5:(ncol(oceaniar)-1)]
+date_oc_r = colnames( ocst )
+date_oc_r = as.Date(date_oc_r, '%m/%d/%y')
+ocst <- colSums(ocst)
+ocst <- as.vector(ocst)
+# transformation serie temporelle : 
+OCEANIA. = xts(x = ocst, order.by = date_oc_r)
+#### graphe ####
+xxxxx=cbind(GLOBAL.,AFRICA.,AMERICAS.,EUROPE.,ASIA.,OCEANIA.)
+ggplotbycontst=dygraph(xxxxx)%>%
+  dyOptions(labelsUTC = TRUE, fillGraph=TRUE, fillAlpha=0.1, drawGrid = FALSE) %>%
+  dyRangeSelector() %>%
+  dyCrosshair(direction = "vertical") %>%
+  dyHighlight(highlightCircleSize = 5, highlightSeriesBackgroundAlpha = 0.2, hideOnMouseOut = T)  %>%
+  dyRoller(rollPeriod = 1)
+   
+ggplotbycontst
+
+
+```
+
+
+ROW
+---------------------
+### DATA TABLE BY CONTINENTS
+```{r}
+#### africa ####
+afst <- africar[ ,5:(ncol(africar)-1)]
+date_af_r = colnames( afst )
+date_af_r = as.Date(date_af_r, '%m/%d/%y')
+afst <- colSums(afst)
+afst <- as.vector(afst)
+# transformation serie temporelle : 
+AFRICA. = xts(x = afst, order.by = date_af_r)
+#### europe ####
+eust <- europer[ ,5:(ncol(europer)-1)]
+date_eu_r = colnames( eust )
+date_eu_r = as.Date(date_eu_r, '%m/%d/%y')
+eust <- colSums(eust)
+eust <- as.vector(eust)
+# transformation serie temporelle : 
+EUROPE. = xts(x = eust, order.by = date_eu_r)
+#### AISIA ####
+aist <- asier[ ,5:(ncol(asier)-1)]
+date_as_r = colnames( aist )
+date_as_r = as.Date(date_as_r, '%m/%d/%y')
+aist <- colSums(aist)
+aist <- as.vector(aist)
+# transformation serie temporelle : 
+ASIA. = xts(x = aist, order.by = date_as_r)
+#### americas ####
+amst <- americasr[ ,5:(ncol(americasr)-1)]
+date_am_r = colnames( amst )
+date_am_r = as.Date(date_am_r, '%m/%d/%y')
+amst <- colSums(amst)
+amst <- as.vector(amst)
+# transformation serie temporelle : 
+AMERICAS. = xts(x = amst, order.by = date_am_r)
+#### oceania ####
+ocst <- oceaniar[ ,5:(ncol(oceaniar)-1)]
+date_oc_r = colnames( ocst )
+date_oc_r = as.Date(date_oc_r, '%m/%d/%y')
+ocst <- colSums(ocst)
+ocst <- as.vector(ocst)
+# transformation serie temporelle : 
+OCEANIA. = xts(x = ocst, order.by = date_oc_r)
+axx=(rbind(afst,eust,amst,ocst,aist))
+axx=data.frame(axx)
+colnames(axx)=colnames( asier[ ,5:(ncol(asier)-1)] )
+rownames(axx)=c('AFRICA','EUROPE','AMERICAS','OCEANIA','ASIA')
+datatable(
+  axx)
+
+```
+
+
+
+
+AFRICA {data-navmenu="RECOVERY Cases Analysis"}
+=====================================  
+
+ROW
+---------------------
+### RECOVERIES TS PLOTTING
+```{r}
+#### africa ####
+afst <- africar[ ,5:(ncol(africar)-1)]
+date_af_r = colnames( afst )
+date_af_r = as.Date(date_af_r, '%m/%d/%y')
+afst <- colSums(afst)
+afst <- as.vector(afst)
+# transformation serie temporelle : 
+AFRICA. = xts(x = afst, order.by = date_af_r)
+ggplotafrica=dygraph(AFRICA.)%>%
+  dyOptions(labelsUTC = TRUE, fillGraph=TRUE, fillAlpha=0.1, drawGrid = FALSE) %>%
+  dyRangeSelector() %>%
+  dyCrosshair(direction = "vertical") %>%
+  dyHighlight(highlightCircleSize = 5, highlightSeriesBackgroundAlpha = 0.2, hideOnMouseOut = FALSE)  %>%
+  dyRoller(rollPeriod = 1)
+   
+ggplotafrica
+
+```
+
+### RECOVERIES BY TOP COUNTRIES > 150 CASE
+```{r}
+world_r <- africar[ -c(1,3,4,ncol(africar))]
+world_r=(world_r[world_r$'4/23/20'>150,])
+world_r=cbind(world_r$name,world_r[ncol(world_r)])
+names(world_r)[1]='COUNTRY'
+names(world_r)[2]='TOTALE'
+ggaffc=ggplot(data=world_r, aes(x=COUNTRY, y=TOTALE)) +
+  geom_bar(stat="identity", fill="lightgreen")+
+  theme_minimal()+theme(
+        axis.text.x=element_blank())
+ggplotly(ggaffc)
+```
+
+### TS PLOTTING BY TOP COUNTRIES > 150 CASE
+```{r}
+world_r <- africar[ -c(1,3,4,ncol(africar))]
+world_r=(world_r[world_r$'4/23/20'>150,])
+world_r<- data.frame(world_r, row.names = 1,check.names = F)
+date_oc_r = colnames( world_r)
+date_oc_r = as.Date(date_oc_r, '%m/%d/%y')
+# transformation serie temporelle : 
+st.af = xts(x = t(world_r), order.by = date_oc_r)
+
+ggplotafcc=dygraph(st.af)%>%
+  dyOptions(labelsUTC = TRUE, fillGraph=TRUE, fillAlpha=0.1, drawGrid = FALSE) %>%
+  dyRangeSelector() %>%
+  dyCrosshair(direction = "vertical") %>%
+  dyHighlight(highlightCircleSize = 5, highlightSeriesBackgroundAlpha = 0.2, hideOnMouseOut = FALSE)  %>%
+  dyRoller(rollPeriod = 1)
+   
+ggplotafcc
+```
+
+ROW
+---------------------
+### DATA TABLE BY CONTINENTS
+```{r}
+
+datatable(africar)
+
+```
+
+
+EUROPE {data-navmenu="RECOVERY Cases Analysis"}
+=====================================
+ROW
+---------------------
+### RECOVERIES TS PLOTTING
+```{r}
+#### africa ####
+afst <- europer[ ,5:(ncol(europer)-1)]
+date_af_r = colnames( afst )
+date_af_r = as.Date(date_af_r, '%m/%d/%y')
+afst <- colSums(afst)
+afst <- as.vector(afst)
+# transformation serie temporelle : 
+AFRICA. = xts(x = afst, order.by = date_af_r)
+ggplotafrica=dygraph(AFRICA.)%>%
+  dyOptions(labelsUTC = TRUE, fillGraph=TRUE, fillAlpha=0.1, drawGrid = FALSE) %>%
+  dyRangeSelector() %>%
+  dyCrosshair(direction = "vertical") %>%
+  dyHighlight(highlightCircleSize = 5, highlightSeriesBackgroundAlpha = 0.2, hideOnMouseOut = FALSE)  %>%
+  dyRoller(rollPeriod = 1)
+   
+ggplotafrica
+
+```
+
+### RECOVERIES BY TOP COUNTRY > 1000 CASE
+```{r}
+world_r <- europer[ -c(1,3,4,ncol(europer))]
+world_r=(world_r[world_r$'4/23/20'>1000,])
+world_r=cbind(world_r$name,world_r[ncol(world_r)])
+names(world_r)[1]='COUNTRY'
+names(world_r)[2]='TOTALE'
+ggaffc=ggplot(data=world_r, aes(x=COUNTRY, y=TOTALE)) +
+  geom_bar(stat="identity", fill="lightgreen")+
+  theme_minimal()+theme(axis.text.x=element_blank())
+ggplotly(ggaffc)
+```
+
+### TS PLOTTING BY TOP COUNTRIES > 1000 CASE
+```{r}
+world_r <- europer[ -c(1,3,4,ncol(europer))]
+world_r=(world_r[world_r$'4/23/20'>1000,])
+# transformation serie temporelle : 
+world_r1=sapply(world_r, as.numeric)
+world_r1=data.frame(world_r1,check.names = F)
+bycityyy=aggregate((world_r1),
+                by = list(world_r$name),
+                FUN = sum)
+bycityyy$name=unique(world_r$name)
+world_r=bycityyy[,-1]
+world_r<- data.frame(world_r, row.names = 1,check.names = F)
+date_oc_r = colnames( world_r)
+date_oc_r = as.Date(date_oc_r, '%m/%d/%y')
+st.af = xts(x = t(world_r), order.by = date_oc_r)
+
+
+
+ggplotafcc=dygraph(st.af)%>%
+  dyOptions(labelsUTC = TRUE, fillGraph=TRUE, fillAlpha=0.1, drawGrid = FALSE) %>%
+  dyRangeSelector() %>%
+  dyCrosshair(direction = "vertical") %>%
+  dyHighlight(highlightCircleSize = 5, highlightSeriesBackgroundAlpha = 0.2, hideOnMouseOut = FALSE)  %>%
+  dyRoller(rollPeriod = 1)
+   
+ggplotafcc
+```
+
+ROW
+---------------------
+### DATA TABLE BY CONTINENTS
+```{r}
+
+datatable(europer)
+
+```
+
+
+
+AMERICAS {data-navmenu="RECOVERY Cases Analysis"}
+=====================================  
+ROW
+---------------------
+### RECOVERIES TS PLOTTING
+```{r}
+#### africa ####
+afst <- americasr[ ,5:(ncol(americasr)-1)]
+date_af_r = colnames( afst )
+date_af_r = as.Date(date_af_r, '%m/%d/%y')
+afst <- colSums(afst)
+afst <- as.vector(afst)
+# transformation serie temporelle : 
+AFRICA. = xts(x = afst, order.by = date_af_r)
+ggplotafrica=dygraph(AFRICA.)%>%
+  dyOptions(labelsUTC = TRUE, fillGraph=TRUE, fillAlpha=0.1, drawGrid = FALSE) %>%
+  dyRangeSelector() %>%
+  dyCrosshair(direction = "vertical") %>%
+  dyHighlight(highlightCircleSize = 5, highlightSeriesBackgroundAlpha = 0.2, hideOnMouseOut = FALSE)  %>%
+  dyRoller(rollPeriod = 1)
+   
+ggplotafrica
+
+```
+
+### RECOVERIES BY TOP COUNTRIES > 1000 CASE
+```{r}
+world_r <- americasr[ -c(1,3,4,ncol(americasr))]
+world_r=(world_r[world_r$'4/23/20'>1000,])
+world_r=cbind(world_r$name,world_r[ncol(world_r)])
+names(world_r)[1]='COUNTRY'
+names(world_r)[2]='TOTALE'
+ggaffc=ggplot(data=world_r, aes(x=COUNTRY, y=TOTALE)) +
+  geom_bar(stat="identity", fill="lightgreen")+
+  theme_minimal()+theme(axis.text.x=element_blank())
+ggplotly(ggaffc)
+```
+
+### TS PLOTTING BY TOP COUNTRIES > 1000 CASE
+```{r}
+world_r <- americasr[ -c(1,3,4,ncol(americasr))]
+world_r=(world_r[world_r$'4/23/20'>1000,])
+# transformation serie temporelle : 
+world_r1=sapply(world_r, as.numeric)
+world_r1=data.frame(world_r1,check.names = F)
+bycityyy=aggregate((world_r1),
+                by = list(world_r$name),
+                FUN = sum)
+bycityyy$name=unique(world_r$name)
+world_r=bycityyy[,-1]
+world_r<- data.frame(world_r, row.names = 1,check.names = F)
+date_oc_r = colnames( world_r)
+date_oc_r = as.Date(date_oc_r, '%m/%d/%y')
+st.af = xts(x = t(world_r), order.by = date_oc_r)
+
+
+
+ggplotafcc=dygraph(st.af)%>%
+  dyOptions(labelsUTC = TRUE, fillGraph=TRUE, fillAlpha=0.1, drawGrid = FALSE) %>%
+  dyRangeSelector() %>%
+  dyCrosshair(direction = "vertical") %>%
+  dyHighlight(highlightCircleSize = 5, highlightSeriesBackgroundAlpha = 0.2, hideOnMouseOut = FALSE)  %>%
+  dyRoller(rollPeriod = 1)
+   
+ggplotafcc
+```
+
+ROW
+---------------------
+### DATA TABLE BY CONTINENTS
+```{r}
+
+datatable(americasr)
+
+```
+
+
+ASIA {data-navmenu="RECOVERY Cases Analysis"}
+=====================================  
+ROW
+---------------------
+### RECOVERIES TS PLOTTING
+```{r}
+#### africa ####
+afst <- asier[ ,5:(ncol(asier)-1)]
+date_af_r = colnames( afst )
+date_af_r = as.Date(date_af_r, '%m/%d/%y')
+afst <- colSums(afst)
+afst <- as.vector(afst)
+# transformation serie temporelle : 
+AFRICA. = xts(x = afst, order.by = date_af_r)
+ggplotafrica=dygraph(AFRICA.)%>%
+  dyOptions(labelsUTC = TRUE, fillGraph=TRUE, fillAlpha=0.1, drawGrid = FALSE) %>%
+  dyRangeSelector() %>%
+  dyCrosshair(direction = "vertical") %>%
+  dyHighlight(highlightCircleSize = 5, highlightSeriesBackgroundAlpha = 0.2, hideOnMouseOut = FALSE)  %>%
+  dyRoller(rollPeriod = 1)
+   
+ggplotafrica
+
+```
+
+### RECOVERIES BY TOP COUNTRIES > 1000 CASE
+```{r}
+world_r <- asier[ -c(1,3,4,ncol(asier))]
+world_r=(world_r[world_r$'4/23/20'>500,])
+world_r=cbind(world_r$name,world_r[ncol(world_r)])
+names(world_r)[1]='COUNTRY'
+names(world_r)[2]='TOTALE'
+ggaffc=ggplot(data=world_r, aes(x=COUNTRY, y=TOTALE)) +
+  geom_bar(stat="identity", fill="lightgreen")+
+  theme_minimal()+theme(axis.text.x=element_blank())
+ggplotly(ggaffc)
+```
+
+### TS PLOTTING BY TOP COUNTRIES > 1000 CASE
+```{r}
+world_r <- asier[ -c(1,3,4,ncol(asier))]
+world_r=(world_r[world_r$'4/23/20'>1000,])
+# transformation serie temporelle : 
+world_r1=sapply(world_r, as.numeric)
+world_r1=data.frame(world_r1,check.names = F)
+bycityyy=aggregate((world_r1),
+                by = list(world_r$name),
+                FUN = sum)
+bycityyy$name=unique(world_r$name)
+world_r=bycityyy[,-1]
+world_r<- data.frame(world_r, row.names = 1,check.names = F)
+date_oc_r = colnames( world_r)
+date_oc_r = as.Date(date_oc_r, '%m/%d/%y')
+st.af = xts(x = t(world_r), order.by = date_oc_r)
+
+
+
+ggplotafcc=dygraph(st.af)%>%
+  dyOptions(labelsUTC = TRUE, fillGraph=TRUE, fillAlpha=0.1, drawGrid = FALSE) %>%
+  dyRangeSelector() %>%
+  dyCrosshair(direction = "vertical") %>%
+  dyHighlight(highlightCircleSize = 5, highlightSeriesBackgroundAlpha = 0.2, hideOnMouseOut = FALSE)  %>%
+  dyRoller(rollPeriod = 1)
+   
+ggplotafcc
+```
+
+ROW
+---------------------
+### DATA TABLE BY CONTINENTS
+```{r}
+
+datatable(asier)
+
+```
+
+
+
+OCEANIA {data-navmenu="RECOVERY Cases Analysis"}
+=====================================  
+ROW
+---------------------
+### RECOVERIES TS PLOTTING
+```{r}
+#### africa ####
+afst <- oceaniar[ ,5:(ncol(oceaniar)-1)]
+date_af_r = colnames( afst )
+date_af_r = as.Date(date_af_r, '%m/%d/%y')
+afst <- colSums(afst)
+afst <- as.vector(afst)
+# transformation serie temporelle : 
+AFRICA. = xts(x = afst, order.by = date_af_r)
+ggplotafrica=dygraph(AFRICA.)%>%
+  dyOptions(labelsUTC = TRUE, fillGraph=TRUE, fillAlpha=0.1, drawGrid = FALSE) %>%
+  dyRangeSelector() %>%
+  dyCrosshair(direction = "vertical") %>%
+  dyHighlight(highlightCircleSize = 5, highlightSeriesBackgroundAlpha = 0.2, hideOnMouseOut = FALSE)  %>%
+  dyRoller(rollPeriod = 1)
+   
+ggplotafrica
+
+```
+
+### RECOVERIES BY TOP COUNTRIES > 50 CASE
+```{r}
+world_r <- oceaniar[ -c(1,3,4,ncol(oceaniar))]
+world_r=(world_r[world_r$'4/23/20'>50,])
+world_r=cbind(world_r$name,world_r[ncol(world_r)])
+names(world_r)[1]='COUNTRY'
+names(world_r)[2]='TOTALE'
+ggaffc=ggplot(data=world_r, aes(x=COUNTRY, y=TOTALE)) +
+  geom_bar(stat="identity", fill="lightgreen")+
+  theme_minimal()+theme(axis.text.x=element_blank())
+ggplotly(ggaffc)
+```
+
+### TS PLOTTING BY TOP COUNTRIES > 50 CASE
+```{r}
+world_r <- oceaniar[ -c(1,3,4,ncol(oceaniar))]
+world_r=(world_r[world_r$'4/23/20'>50,])
+# transformation serie temporelle : 
+world_r1=sapply(world_r, as.numeric)
+world_r1=data.frame(world_r1,check.names = F)
+bycityyy=aggregate((world_r1),
+                by = list(world_r$name),
+                FUN = sum)
+bycityyy$name=unique(world_r$name)
+world_r=bycityyy[,-1]
+world_r<- data.frame(world_r, row.names = 1,check.names = F)
+date_oc_r = colnames( world_r)
+date_oc_r = as.Date(date_oc_r, '%m/%d/%y')
+st.af = xts(x = t(world_r), order.by = date_oc_r)
+
+
+
+ggplotafcc=dygraph(st.af)%>%
+  dyOptions(labelsUTC = TRUE, fillGraph=TRUE, fillAlpha=0.1, drawGrid = FALSE) %>%
+  dyRangeSelector() %>%
+  dyCrosshair(direction = "vertical") %>%
+  dyHighlight(highlightCircleSize = 5, highlightSeriesBackgroundAlpha = 0.2, hideOnMouseOut = FALSE)  %>%
+  dyRoller(rollPeriod = 1)
+   
+ggplotafcc
+```
+
+ROW
+---------------------
+### DATA TABLE BY CONTINENTS
+```{r}
+
+datatable(oceaniar)
+
+```
+
+
+
+
+
+
+
+
+
+WORLD {data-navmenu="CONFIRMED Cases Analysis"}
+=====================================
+
+ROW
+--------------------
+### CONFIRMED CASES TS PLOTTING
+```{r}
+
+world_r <- Confirmed_dfc[ ,5:(ncol(Confirmed_dfc)-1)]
+date_gl_r = colnames( world_r )
+date_gl_r = as.Date(date_gl_r, '%m/%d/%y')
+world_r <- colSums(world_r)
+world_r <- as.vector(world_r)
+# transformation serie temporelle : 
+global_ts_r = xts(x = world_r, order.by = date_gl_r)
+
+
+# Finally the plot
+rtsplot=dygraph(global_ts_r) %>%
+  dyOptions(labelsUTC = TRUE, fillGraph=TRUE, fillAlpha=0.1, drawGrid = FALSE, colors="#69b3a2") %>%
+  dyRangeSelector() %>%
+  dyCrosshair(direction = "vertical") %>%
+  dyHighlight(highlightCircleSize = 5, highlightSeriesBackgroundAlpha = 0.2, hideOnMouseOut = FALSE)  %>%
+  dyRoller(rollPeriod = 1)
+rtsplot
+```
+
+### CONFIRMED CASES BY CONTINENT
+```{r}
+world_r <- Confirmed_dfc[ ,5:(ncol(Confirmed_dfc))]
+bycont=aggregate(Confirmed_dfc[ncol(Confirmed_dfc)-1], by=list(Category=Confirmed_dfc$continent), FUN=sum)
+names(bycont)[1]=paste('CONTINENT')
+names(bycont)[2]=paste('TOTALE')
+ggcont=ggplot(data=bycont, aes(x=CONTINENT, y=TOTALE)) +
+  geom_bar(stat="identity", fill="ORANGE")+
+  theme_minimal()
+ggplotly(ggcont)
+
+```
+
+### TS PLOTTING BY CONTINENT
+```{r}
+#### GLOBAL ####
+world_r <- Confirmed_dfc[ ,5:(ncol(Confirmed_dfc)-1)]
+date_gl_r = colnames( world_r )
+date_gl_r = as.Date(date_gl_r, '%m/%d/%y')
+world_r <- colSums(world_r)
+world_r <- as.vector(world_r)
+GLOBAL. = xts(x = world_r, order.by = date_gl_r)
+
+#### africa ####
+afst <- africac[ ,5:(ncol(africac)-1)]
+date_af_r = colnames( afst )
+date_af_r = as.Date(date_af_r, '%m/%d/%y')
+afst <- colSums(afst)
+afst <- as.vector(afst)
+# transformation serie temporelle : 
+AFRICA. = xts(x = afst, order.by = date_af_r)
+#### europe ####
+eust <- europec[ ,5:(ncol(europec)-1)]
+date_eu_r = colnames( eust )
+date_eu_r = as.Date(date_eu_r, '%m/%d/%y')
+eust <- colSums(eust)
+eust <- as.vector(eust)
+# transformation serie temporelle : 
+EUROPE. = xts(x = eust, order.by = date_eu_r)
+#### AISIA ####
+aist <- asiec[ ,5:(ncol(asiec)-1)]
+date_as_r = colnames( aist )
+date_as_r = as.Date(date_as_r, '%m/%d/%y')
+aist <- colSums(aist)
+aist <- as.vector(aist)
+# transformation serie temporelle : 
+ASIA. = xts(x = aist, order.by = date_as_r)
+#### americas ####
+amst <- americasc[ ,5:(ncol(americasc)-1)]
+date_am_r = colnames( amst )
+date_am_r = as.Date(date_am_r, '%m/%d/%y')
+amst <- colSums(amst)
+amst <- as.vector(amst)
+# transformation serie temporelle : 
+AMERICAS. = xts(x = amst, order.by = date_am_r)
+#### oceania ####
+ocst <- oceaniac[ ,5:(ncol(oceaniac)-1)]
+date_oc_r = colnames( ocst )
+date_oc_r = as.Date(date_oc_r, '%m/%d/%y')
+ocst <- colSums(ocst)
+ocst <- as.vector(ocst)
+# transformation serie temporelle : 
+OCEANIA. = xts(x = ocst, order.by = date_oc_r)
+#### graphe ####
+xxxxx=cbind(GLOBAL.,AFRICA.,AMERICAS.,EUROPE.,ASIA.,OCEANIA.)
+ggplotbycontst=dygraph(xxxxx)%>%
+  dyOptions(labelsUTC = TRUE, fillGraph=TRUE, fillAlpha=0.1, drawGrid = FALSE) %>%
+  dyRangeSelector() %>%
+  dyCrosshair(direction = "vertical") %>%
+  dyHighlight(highlightCircleSize = 5, highlightSeriesBackgroundAlpha = 0.2, hideOnMouseOut = T)  %>%
+  dyRoller(rollPeriod = 1)
+   
+ggplotbycontst
+
+
+```
+
+ROW
+---------------------
+### DATA TABLE BY CONTINENTS
+```{r}
+#### africa ####
+afst <- africac[ ,5:(ncol(africac)-1)]
+date_af_r = colnames( afst )
+date_af_r = as.Date(date_af_r, '%m/%d/%y')
+afst <- colSums(afst)
+afst <- as.vector(afst)
+# transformation serie temporelle : 
+AFRICA. = xts(x = afst, order.by = date_af_r)
+#### europe ####
+eust <- europec[ ,5:(ncol(europec)-1)]
+date_eu_r = colnames( eust )
+date_eu_r = as.Date(date_eu_r, '%m/%d/%y')
+eust <- colSums(eust)
+eust <- as.vector(eust)
+# transformation serie temporelle : 
+EUROPE. = xts(x = eust, order.by = date_eu_r)
+#### AISIA ####
+aist <- asiec[ ,5:(ncol(asiec)-1)]
+date_as_r = colnames( aist )
+date_as_r = as.Date(date_as_r, '%m/%d/%y')
+aist <- colSums(aist)
+aist <- as.vector(aist)
+# transformation serie temporelle : 
+ASIA. = xts(x = aist, order.by = date_as_r)
+#### americas ####
+amst <- americasc[ ,5:(ncol(americasc)-1)]
+date_am_r = colnames( amst )
+date_am_r = as.Date(date_am_r, '%m/%d/%y')
+amst <- colSums(amst)
+amst <- as.vector(amst)
+# transformation serie temporelle : 
+AMERICAS. = xts(x = amst, order.by = date_am_r)
+#### oceania ####
+ocst <- oceaniac[ ,5:(ncol(oceaniac)-1)]
+date_oc_r = colnames( ocst )
+date_oc_r = as.Date(date_oc_r, '%m/%d/%y')
+ocst <- colSums(ocst)
+ocst <- as.vector(ocst)
+# transformation serie temporelle : 
+OCEANIA. = xts(x = ocst, order.by = date_oc_r)
+axx=(rbind(afst,eust,amst,ocst,aist))
+axx=data.frame(axx)
+colnames(axx)=colnames( asier[ ,5:(ncol(asier)-1)] )
+rownames(axx)=c('AFRICA','EUROPE','AMERICAS','OCEANIA','ASIA')
+datatable(
+  axx)
+
+```
+
+AFRICA {data-navmenu="CONFIRMED Cases Analysis"}
+=====================================  
+
+ROW
+---------------------
+### CONFIRMED CASES TS PLOTTING
+```{r}
+#### africa ####
+afst <- africac[ ,5:(ncol(africac)-1)]
+date_af_r = colnames( afst )
+date_af_r = as.Date(date_af_r, '%m/%d/%y')
+afst <- colSums(afst)
+afst <- as.vector(afst)
+# transformation serie temporelle : 
+AFRICA. = xts(x = afst, order.by = date_af_r)
+ggplotafrica=dygraph(AFRICA.)%>%
+  dyOptions(labelsUTC = TRUE, fillGraph=TRUE, fillAlpha=0.1, drawGrid = FALSE) %>%
+  dyRangeSelector() %>%
+  dyCrosshair(direction = "vertical") %>%
+  dyHighlight(highlightCircleSize = 5, highlightSeriesBackgroundAlpha = 0.2, hideOnMouseOut = FALSE)  %>%
+  dyRoller(rollPeriod = 1)
+   
+ggplotafrica
+
+```
+
+### CONFIRMED CASES BY TOP COUNTRIES > 500 CASE
+```{r}
+world_r <- africac[ -c(1,3,4,ncol(africac))]
+world_r=(world_r[world_r$'4/23/20'>500,])
+world_r=cbind(world_r$name,world_r[ncol(world_r)])
+names(world_r)[1]='COUNTRY'
+names(world_r)[2]='TOTALE'
+ggaffc=ggplot(data=world_r, aes(x=COUNTRY, y=TOTALE)) +
+  geom_bar(stat="identity", fill="ORANGE")+
+  theme_minimal()+theme(
+        axis.text.x=element_blank())
+ggplotly(ggaffc)
+```
+
+### TS PLOTTING BY TOP COUNTRIES > 500 CASE
+```{r}
+world_r <- africac[ -c(1,3,4,ncol(africac))]
+world_r=(world_r[world_r$'4/23/20'>500,])
+world_r<- data.frame(world_r, row.names = 1,check.names = F)
+date_oc_r = colnames( world_r)
+date_oc_r = as.Date(date_oc_r, '%m/%d/%y')
+# transformation serie temporelle : 
+st.af = xts(x = t(world_r), order.by = date_oc_r)
+
+ggplotafcc=dygraph(st.af)%>%
+  dyOptions(labelsUTC = TRUE, fillGraph=TRUE, fillAlpha=0.1, drawGrid = FALSE) %>%
+  dyRangeSelector() %>%
+  dyCrosshair(direction = "vertical") %>%
+  dyHighlight(highlightCircleSize = 5, highlightSeriesBackgroundAlpha = 0.2, hideOnMouseOut = FALSE)  %>%
+  dyRoller(rollPeriod = 1)
+   
+ggplotafcc
+```
+
+ROW
+---------------------
+### DATA TABLE BY CONTINENTS
+```{r}
+
+datatable(africac)
+
+```
+
+
+EUROPE {data-navmenu="CONFIRMED Cases Analysis"}
+=====================================
+ROW
+---------------------
+### CONFIRMED CASES TS PLOTTING
+```{r}
+#### africa ####
+afst <- europec[ ,5:(ncol(europec)-1)]
+date_af_r = colnames( afst )
+date_af_r = as.Date(date_af_r, '%m/%d/%y')
+afst <- colSums(afst)
+afst <- as.vector(afst)
+# transformation serie temporelle : 
+AFRICA. = xts(x = afst, order.by = date_af_r)
+ggplotafrica=dygraph(AFRICA.)%>%
+  dyOptions(labelsUTC = TRUE, fillGraph=TRUE, fillAlpha=0.1, drawGrid = FALSE) %>%
+  dyRangeSelector() %>%
+  dyCrosshair(direction = "vertical") %>%
+  dyHighlight(highlightCircleSize = 5, highlightSeriesBackgroundAlpha = 0.2, hideOnMouseOut = FALSE)  %>%
+  dyRoller(rollPeriod = 1)
+   
+ggplotafrica
+
+```
+
+### CONFRIMED CASES BY TOP COUNTRY > 10000 CASE
+```{r}
+world_r <- europec[ -c(1,3,4,ncol(europec))]
+world_r=(world_r[world_r$'4/23/20'>10000,])
+world_r=cbind(world_r$name,world_r[ncol(world_r)])
+names(world_r)[1]='COUNTRY'
+names(world_r)[2]='TOTALE'
+ggaffc=ggplot(data=world_r, aes(x=COUNTRY, y=TOTALE)) +
+  geom_bar(stat="identity", fill="ORANGE")+
+  theme_minimal()+theme(axis.text.x=element_blank())
+ggplotly(ggaffc)
+```
+
+### TS PLOTTING BY TOP COUNTRIES > 10000 CASE
+```{r}
+world_r <- europec[ -c(1,3,4,ncol(europec))]
+world_r=(world_r[world_r$'4/23/20'>10000,])
+# transformation serie temporelle : 
+world_r1=sapply(world_r, as.numeric)
+world_r1=data.frame(world_r1,check.names = F)
+bycityyy=aggregate((world_r1),
+                by = list(world_r$name),
+                FUN = sum)
+bycityyy$name=unique(world_r$name)
+world_r=bycityyy[,-1]
+world_r<- data.frame(world_r, row.names = 1,check.names = F)
+date_oc_r = colnames( world_r)
+date_oc_r = as.Date(date_oc_r, '%m/%d/%y')
+st.af = xts(x = t(world_r), order.by = date_oc_r)
+
+
+
+ggplotafcc=dygraph(st.af)%>%
+  dyOptions(labelsUTC = TRUE, fillGraph=TRUE, fillAlpha=0.1, drawGrid = FALSE) %>%
+  dyRangeSelector() %>%
+  dyCrosshair(direction = "vertical") %>%
+  dyHighlight(highlightCircleSize = 5, highlightSeriesBackgroundAlpha = 0.2, hideOnMouseOut = FALSE)  %>%
+  dyRoller(rollPeriod = 1)
+   
+ggplotafcc
+```
+
+ROW
+---------------------
+### DATA TABLE BY CONTINENTS
+```{r}
+
+datatable(europec)
+
+```
+
+
+
+AMERICAS {data-navmenu="CONFIRMED Cases Analysis"}
+=====================================  
+ROW
+---------------------
+### CONFIRMED CASES TS PLOTTING
+```{r}
+#### africa ####
+afst <- americasc[ ,5:(ncol(americasc)-1)]
+date_af_r = colnames( afst )
+date_af_r = as.Date(date_af_r, '%m/%d/%y')
+afst <- colSums(afst)
+afst <- as.vector(afst)
+# transformation serie temporelle : 
+AFRICA. = xts(x = afst, order.by = date_af_r)
+ggplotafrica=dygraph(AFRICA.)%>%
+  dyOptions(labelsUTC = TRUE, fillGraph=TRUE, fillAlpha=0.1, drawGrid = FALSE) %>%
+  dyRangeSelector() %>%
+  dyCrosshair(direction = "vertical") %>%
+  dyHighlight(highlightCircleSize = 5, highlightSeriesBackgroundAlpha = 0.2, hideOnMouseOut = FALSE)  %>%
+  dyRoller(rollPeriod = 1)
+   
+ggplotafrica
+
+```
+
+### CONFIRMED CASES BY TOP COUNTRIES > 10000 CASE
+```{r}
+world_r <- americasc[ -c(1,3,4,ncol(americasc))]
+world_r=(world_r[world_r$'4/23/20'>10000,])
+world_r=cbind(world_r$name,world_r[ncol(world_r)])
+names(world_r)[1]='COUNTRY'
+names(world_r)[2]='TOTALE'
+ggaffc=ggplot(data=world_r, aes(x=COUNTRY, y=TOTALE)) +
+  geom_bar(stat="identity", fill="ORANGE")+
+  theme_minimal()+theme(axis.text.x=element_blank())
+ggplotly(ggaffc)
+```
+
+### TS PLOTTING BY TOP COUNTRIES > 10000 CASE
+```{r}
+world_r <- americasc[ -c(1,3,4,ncol(americasc))]
+world_r=(world_r[world_r$'4/23/20'>10000,])
+# transformation serie temporelle : 
+world_r1=sapply(world_r, as.numeric)
+world_r1=data.frame(world_r1,check.names = F)
+bycityyy=aggregate((world_r1),
+                by = list(world_r$name),
+                FUN = sum)
+bycityyy$name=unique(world_r$name)
+world_r=bycityyy[,-1]
+world_r<- data.frame(world_r, row.names = 1,check.names = F)
+date_oc_r = colnames( world_r)
+date_oc_r = as.Date(date_oc_r, '%m/%d/%y')
+st.af = xts(x = t(world_r), order.by = date_oc_r)
+
+
+
+ggplotafcc=dygraph(st.af)%>%
+  dyOptions(labelsUTC = TRUE, fillGraph=TRUE, fillAlpha=0.1, drawGrid = FALSE) %>%
+  dyRangeSelector() %>%
+  dyCrosshair(direction = "vertical") %>%
+  dyHighlight(highlightCircleSize = 5, highlightSeriesBackgroundAlpha = 0.2, hideOnMouseOut = FALSE)  %>%
+  dyRoller(rollPeriod = 1)
+   
+ggplotafcc
+```
+
+ROW
+---------------------
+### DATA TABLE BY CONTINENTS
+```{r}
+
+datatable(americasc)
+
+```
+
+
+ASIA {data-navmenu="CONFIRMED Cases Analysis"}
+=====================================  
+ROW
+---------------------
+### CONFIRMED CASES TS PLOTTING
+```{r}
+#### africa ####
+afst <- asiec[ ,5:(ncol(asiec)-1)]
+date_af_r = colnames( afst )
+date_af_r = as.Date(date_af_r, '%m/%d/%y')
+afst <- colSums(afst)
+afst <- as.vector(afst)
+# transformation serie temporelle : 
+AFRICA. = xts(x = afst, order.by = date_af_r)
+ggplotafrica=dygraph(AFRICA.)%>%
+  dyOptions(labelsUTC = TRUE, fillGraph=TRUE, fillAlpha=0.1, drawGrid = FALSE) %>%
+  dyRangeSelector() %>%
+  dyCrosshair(direction = "vertical") %>%
+  dyHighlight(highlightCircleSize = 5, highlightSeriesBackgroundAlpha = 0.2, hideOnMouseOut = FALSE)  %>%
+  dyRoller(rollPeriod = 1)
+   
+ggplotafrica
+
+```
+
+### CONFIRMED CASES BY TOP COUNTRIES > 10000 CASE
+```{r}
+world_r <- asiec[ -c(1,3,4,ncol(asiec))]
+world_r=(world_r[world_r$'4/23/20'>10000,])
+world_r=cbind(world_r$name,world_r[ncol(world_r)])
+names(world_r)[1]='COUNTRY'
+names(world_r)[2]='TOTALE'
+ggaffc=ggplot(data=world_r, aes(x=COUNTRY, y=TOTALE)) +
+  geom_bar(stat="identity", fill="ORANGE")+
+  theme_minimal()+theme(axis.text.x=element_blank())
+ggplotly(ggaffc)
+```
+
+### TS PLOTTING BY TOP COUNTRIES > 10000 CASE
+```{r}
+world_r <- asiec[ -c(1,3,4,ncol(asiec))]
+world_r=(world_r[world_r$'4/23/20'>10000,])
+# transformation serie temporelle : 
+world_r1=sapply(world_r, as.numeric)
+world_r1=data.frame(world_r1,check.names = F)
+bycityyy=aggregate((world_r1),
+                by = list(world_r$name),
+                FUN = sum)
+bycityyy$name=unique(world_r$name)
+world_r=bycityyy[,-1]
+world_r<- data.frame(world_r, row.names = 1,check.names = F)
+date_oc_r = colnames( world_r)
+date_oc_r = as.Date(date_oc_r, '%m/%d/%y')
+st.af = xts(x = t(world_r), order.by = date_oc_r)
+
+
+
+ggplotafcc=dygraph(st.af)%>%
+  dyOptions(labelsUTC = TRUE, fillGraph=TRUE, fillAlpha=0.1, drawGrid = FALSE) %>%
+  dyRangeSelector() %>%
+  dyCrosshair(direction = "vertical") %>%
+  dyHighlight(highlightCircleSize = 5, highlightSeriesBackgroundAlpha = 0.2, hideOnMouseOut = FALSE)  %>%
+  dyRoller(rollPeriod = 1)
+   
+ggplotafcc
+```
+
+ROW
+---------------------
+### DATA TABLE BY CONTINENTS
+```{r}
+
+datatable(asiec)
+
+```
+
+
+
+OCEANIA {data-navmenu="CONFIRMED Cases Analysis"}
+=====================================  
+ROW
+---------------------
+### CONFIRMED CASES TS PLOTTING
+```{r}
+#### africa ####
+afst <- oceaniac[ ,5:(ncol(oceaniac)-1)]
+date_af_r = colnames( afst )
+date_af_r = as.Date(date_af_r, '%m/%d/%y')
+afst <- colSums(afst)
+afst <- as.vector(afst)
+# transformation serie temporelle : 
+AFRICA. = xts(x = afst, order.by = date_af_r)
+ggplotafrica=dygraph(AFRICA.)%>%
+  dyOptions(labelsUTC = TRUE, fillGraph=TRUE, fillAlpha=0.1, drawGrid = FALSE) %>%
+  dyRangeSelector() %>%
+  dyCrosshair(direction = "vertical") %>%
+  dyHighlight(highlightCircleSize = 5, highlightSeriesBackgroundAlpha = 0.2, hideOnMouseOut = FALSE)  %>%
+  dyRoller(rollPeriod = 1)
+   
+ggplotafrica
+
+```
+
+### CONFIRMED CASES BY TOP COUNTRIES > 50 CASE
+```{r}
+world_r <- oceaniac[ -c(1,3,4,ncol(oceaniac))]
+world_r=(world_r[world_r$'4/23/20'>50,])
+world_r=cbind(world_r$name,world_r[ncol(world_r)])
+names(world_r)[1]='COUNTRY'
+names(world_r)[2]='TOTALE'
+ggaffc=ggplot(data=world_r, aes(x=COUNTRY, y=TOTALE)) +
+  geom_bar(stat="identity", fill="ORANGE")+
+  theme_minimal()+theme(axis.text.x=element_blank())
+ggplotly(ggaffc)
+```
+
+### TS PLOTTING BY TOP COUNTRIES > 50 CASE
+```{r}
+world_r <- oceaniac[ -c(1,3,4,ncol(oceaniac))]
+world_r=(world_r[world_r$'4/23/20'>50,])
+# transformation serie temporelle : 
+world_r1=sapply(world_r, as.numeric)
+world_r1=data.frame(world_r1,check.names = F)
+bycityyy=aggregate((world_r1),
+                by = list(world_r$name),
+                FUN = sum)
+bycityyy$name=unique(world_r$name)
+world_r=bycityyy[,-1]
+world_r<- data.frame(world_r, row.names = 1,check.names = F)
+date_oc_r = colnames( world_r)
+date_oc_r = as.Date(date_oc_r, '%m/%d/%y')
+st.af = xts(x = t(world_r), order.by = date_oc_r)
+
+
+
+ggplotafcc=dygraph(st.af)%>%
+  dyOptions(labelsUTC = TRUE, fillGraph=TRUE, fillAlpha=0.1, drawGrid = FALSE) %>%
+  dyRangeSelector() %>%
+  dyCrosshair(direction = "vertical") %>%
+  dyHighlight(highlightCircleSize = 5, highlightSeriesBackgroundAlpha = 0.2, hideOnMouseOut = FALSE)  %>%
+  dyRoller(rollPeriod = 1)
+   
+ggplotafcc
+```
+
+ROW
+---------------------
+### DATA TABLE BY CONTINENTS
+```{r}
+
+datatable(oceaniac)
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+WORLD {data-navmenu="DEATH Cases Analysis"}
+=====================================
+
+ROW
+--------------------
+### DEATHS TS PLOTTING
+```{r}
+
+world_r <- deaths_dfd[ ,5:(ncol(deaths_dfd)-1)]
+date_gl_r = colnames( world_r )
+date_gl_r = as.Date(date_gl_r, '%m/%d/%y')
+world_r <- colSums(world_r)
+world_r <- as.vector(world_r)
+# transformation serie temporelle : 
+global_ts_r = xts(x = world_r, order.by = date_gl_r)
+
+
+# Finally the plot
+rtsplot=dygraph(global_ts_r) %>%
+  dyOptions(labelsUTC = TRUE, fillGraph=TRUE, fillAlpha=0.1, drawGrid = FALSE, colors="#69b3a2") %>%
+  dyRangeSelector() %>%
+  dyCrosshair(direction = "vertical") %>%
+  dyHighlight(highlightCircleSize = 5, highlightSeriesBackgroundAlpha = 0.2, hideOnMouseOut = FALSE)  %>%
+  dyRoller(rollPeriod = 1)
+rtsplot
+```
+
+
+### DEATHS BY CONTINENT
+```{r}
+world_r <- deaths_dfd[ ,5:(ncol(deaths_dfd))]
+bycont=aggregate(deaths_dfd[ncol(deaths_dfd)-1], by=list(Category=deaths_dfd$continent), FUN=sum)
+names(bycont)[1]=paste('CONTINENT')
+names(bycont)[2]=paste('TOTALE')
+ggcont=ggplot(data=bycont, aes(x=CONTINENT, y=TOTALE)) +
+  geom_bar(stat="identity", fill="red")+
+  theme_minimal()
+ggplotly(ggcont)
+
+```
+
+
+### TS PLOTTING BY CONTINENT
+```{r}
+#### GLOBAL ####
+world_r <- deaths_dfd[ ,5:(ncol(deaths_dfd)-1)]
+date_gl_r = colnames( world_r )
+date_gl_r = as.Date(date_gl_r, '%m/%d/%y')
+world_r <- colSums(world_r)
+world_r <- as.vector(world_r)
+GLOBAL. = xts(x = world_r, order.by = date_gl_r)
+
+#### africa ####
+afst <- africad[ ,5:(ncol(africad)-1)]
+date_af_r = colnames( afst )
+date_af_r = as.Date(date_af_r, '%m/%d/%y')
+afst <- colSums(afst)
+afst <- as.vector(afst)
+# transformation serie temporelle : 
+AFRICA. = xts(x = afst, order.by = date_af_r)
+#### europe ####
+eust <- europed[ ,5:(ncol(europed)-1)]
+date_eu_r = colnames( eust )
+date_eu_r = as.Date(date_eu_r, '%m/%d/%y')
+eust <- colSums(eust)
+eust <- as.vector(eust)
+# transformation serie temporelle : 
+EUROPE. = xts(x = eust, order.by = date_eu_r)
+#### AISIA ####
+aist <- asied[ ,5:(ncol(asied)-1)]
+date_as_r = colnames( aist )
+date_as_r = as.Date(date_as_r, '%m/%d/%y')
+aist <- colSums(aist)
+aist <- as.vector(aist)
+# transformation serie temporelle : 
+ASIA. = xts(x = aist, order.by = date_as_r)
+#### americas ####
+amst <- americasd[ ,5:(ncol(americasd)-1)]
+date_am_r = colnames( amst )
+date_am_r = as.Date(date_am_r, '%m/%d/%y')
+amst <- colSums(amst)
+amst <- as.vector(amst)
+# transformation serie temporelle : 
+AMERICAS. = xts(x = amst, order.by = date_am_r)
+#### oceania ####
+ocst <- oceaniad[ ,5:(ncol(oceaniad)-1)]
+date_oc_r = colnames( ocst )
+date_oc_r = as.Date(date_oc_r, '%m/%d/%y')
+ocst <- colSums(ocst)
+ocst <- as.vector(ocst)
+# transformation serie temporelle : 
+OCEANIA. = xts(x = ocst, order.by = date_oc_r)
+#### graphe ####
+xxxxx=cbind(GLOBAL.,AFRICA.,AMERICAS.,EUROPE.,ASIA.,OCEANIA.)
+ggplotbycontst=dygraph(xxxxx)%>%
+  dyOptions(labelsUTC = TRUE, fillGraph=TRUE, fillAlpha=0.1, drawGrid = FALSE) %>%
+  dyRangeSelector() %>%
+  dyCrosshair(direction = "vertical") %>%
+  dyHighlight(highlightCircleSize = 5, highlightSeriesBackgroundAlpha = 0.2, hideOnMouseOut = T)  %>%
+  dyRoller(rollPeriod = 1)
+   
+ggplotbycontst
+
+
+```
+
+
+ROW
+---------------------
+### DATA TABLE BY CONTINENTS
+```{r}
+
+#### africa ####
+afst <- africad[ ,5:(ncol(africad)-1)]
+date_af_r = colnames( afst )
+date_af_r = as.Date(date_af_r, '%m/%d/%y')
+afst <- colSums(afst)
+afst <- as.vector(afst)
+# transformation serie temporelle : 
+AFRICA. = xts(x = afst, order.by = date_af_r)
+#### europe ####
+eust <- europed[ ,5:(ncol(europed)-1)]
+date_eu_r = colnames( eust )
+date_eu_r = as.Date(date_eu_r, '%m/%d/%y')
+eust <- colSums(eust)
+eust <- as.vector(eust)
+# transformation serie temporelle : 
+EUROPE. = xts(x = eust, order.by = date_eu_r)
+#### AISIA ####
+aist <- asied[ ,5:(ncol(asied)-1)]
+date_as_r = colnames( aist )
+date_as_r = as.Date(date_as_r, '%m/%d/%y')
+aist <- colSums(aist)
+aist <- as.vector(aist)
+# transformation serie temporelle : 
+ASIA. = xts(x = aist, order.by = date_as_r)
+#### americas ####
+amst <- americasd[ ,5:(ncol(americasd)-1)]
+date_am_r = colnames( amst )
+date_am_r = as.Date(date_am_r, '%m/%d/%y')
+amst <- colSums(amst)
+amst <- as.vector(amst)
+# transformation serie temporelle : 
+AMERICAS. = xts(x = amst, order.by = date_am_r)
+#### oceania ####
+ocst <- oceaniad[ ,5:(ncol(oceaniad)-1)]
+date_oc_r = colnames( ocst )
+date_oc_r = as.Date(date_oc_r, '%m/%d/%y')
+ocst <- colSums(ocst)
+ocst <- as.vector(ocst)
+# transformation serie temporelle : 
+OCEANIA. = xts(x = ocst, order.by = date_oc_r)
+#### graphe ####
+xxxxx=cbind(GLOBAL.,AFRICA.,AMERICAS.,EUROPE.,ASIA.,OCEANIA.)
+axx=(rbind(afst,eust,amst,ocst,aist))
+axx=data.frame(axx)
+colnames(axx)=colnames( asier[ ,5:(ncol(asier)-1)] )
+rownames(axx)=c('AFRICA','EUROPE','AMERICAS','OCEANIA','ASIA')
+datatable(
+  axx)
+
+```
+
+AFRICA {data-navmenu="DEATH Cases Analysis"}
+=====================================  
+
+ROW
+---------------------
+### DEATHS TS PLOTTING
+```{r}
+#### africa ####
+afst <- africad[ ,5:(ncol(africad)-1)]
+date_af_r = colnames( afst )
+date_af_r = as.Date(date_af_r, '%m/%d/%y')
+afst <- colSums(afst)
+afst <- as.vector(afst)
+# transformation serie temporelle : 
+AFRICA. = xts(x = afst, order.by = date_af_r)
+ggplotafrica=dygraph(AFRICA.)%>%
+  dyOptions(labelsUTC = TRUE, fillGraph=TRUE, fillAlpha=0.1, drawGrid = FALSE) %>%
+  dyRangeSelector() %>%
+  dyCrosshair(direction = "vertical") %>%
+  dyHighlight(highlightCircleSize = 5, highlightSeriesBackgroundAlpha = 0.2, hideOnMouseOut = FALSE)  %>%
+  dyRoller(rollPeriod = 1)
+   
+ggplotafrica
+
+```
+
+### DEATHS BY TOP COUNTRIES > 20 CASE
+```{r}
+world_r <- africad[ -c(1,3,4,ncol(africad))]
+world_r=(world_r[world_r$'4/23/20'>20,])
+world_r=cbind(world_r$name,world_r[ncol(world_r)])
+names(world_r)[1]='COUNTRY'
+names(world_r)[2]='TOTALE'
+ggaffc=ggplot(data=world_r, aes(x=COUNTRY, y=TOTALE)) +
+  geom_bar(stat="identity", fill="red")+
+  theme_minimal()+theme(
+        axis.text.x=element_blank())
+ggplotly(ggaffc)
+```
+
+### TS PLOTTING BY TOP COUNTRIES > 20 CASE
+```{r}
+world_r <- africad[ -c(1,3,4,ncol(africad))]
+world_r=(world_r[world_r$'4/23/20'>20,])
+world_r<- data.frame(world_r, row.names = 1,check.names = F)
+date_oc_r = colnames( world_r)
+date_oc_r = as.Date(date_oc_r, '%m/%d/%y')
+# transformation serie temporelle : 
+st.af = xts(x = t(world_r), order.by = date_oc_r)
+
+ggplotafcc=dygraph(st.af)%>%
+  dyOptions(labelsUTC = TRUE, fillGraph=TRUE, fillAlpha=0.1, drawGrid = FALSE) %>%
+  dyRangeSelector() %>%
+  dyCrosshair(direction = "vertical") %>%
+  dyHighlight(highlightCircleSize = 5, highlightSeriesBackgroundAlpha = 0.2, hideOnMouseOut = FALSE)  %>%
+  dyRoller(rollPeriod = 1)
+   
+ggplotafcc
+```
+
+ROW
+---------------------
+### DATA TABLE BY CONTINENTS
+```{r}
+
+datatable(africad)
+
+```
+
+
+EUROPE {data-navmenu="DEATH Cases Analysis"}
+=====================================
+ROW
+---------------------
+### DEATHS TS PLOTTING
+```{r}
+#### africa ####
+afst <- europed[ ,5:(ncol(europed)-1)]
+date_af_r = colnames( afst )
+date_af_r = as.Date(date_af_r, '%m/%d/%y')
+afst <- colSums(afst)
+afst <- as.vector(afst)
+# transformation serie temporelle : 
+AFRICA. = xts(x = afst, order.by = date_af_r)
+ggplotafrica=dygraph(AFRICA.)%>%
+  dyOptions(labelsUTC = TRUE, fillGraph=TRUE, fillAlpha=0.1, drawGrid = FALSE) %>%
+  dyRangeSelector() %>%
+  dyCrosshair(direction = "vertical") %>%
+  dyHighlight(highlightCircleSize = 5, highlightSeriesBackgroundAlpha = 0.2, hideOnMouseOut = FALSE)  %>%
+  dyRoller(rollPeriod = 1)
+   
+ggplotafrica
+
+```
+
+### DEATHS BY TOP COUNTRY > 500 CASE
+```{r}
+world_r <- europed[ -c(1,3,4,ncol(europed))]
+world_r=(world_r[world_r$'4/23/20'>500,])
+world_r=cbind(world_r$name,world_r[ncol(world_r)])
+names(world_r)[1]='COUNTRY'
+names(world_r)[2]='TOTALE'
+ggaffc=ggplot(data=world_r, aes(x=COUNTRY, y=TOTALE)) +
+  geom_bar(stat="identity", fill="red")+
+  theme_minimal()+theme(axis.text.x=element_blank())
+ggplotly(ggaffc)
+```
+
+### TS PLOTTING BY TOP COUNTRIES > 500 CASE
+```{r}
+world_r <- europed[ -c(1,3,4,ncol(europed))]
+world_r=(world_r[world_r$'4/23/20'>500,])
+# transformation serie temporelle : 
+world_r1=sapply(world_r, as.numeric)
+world_r1=data.frame(world_r1,check.names = F)
+bycityyy=aggregate((world_r1),
+                by = list(world_r$name),
+                FUN = sum)
+bycityyy$name=unique(world_r$name)
+world_r=bycityyy[,-1]
+world_r<- data.frame(world_r, row.names = 1,check.names = F)
+date_oc_r = colnames( world_r)
+date_oc_r = as.Date(date_oc_r, '%m/%d/%y')
+st.af = xts(x = t(world_r), order.by = date_oc_r)
+
+
+
+ggplotafcc=dygraph(st.af)%>%
+  dyOptions(labelsUTC = TRUE, fillGraph=TRUE, fillAlpha=0.1, drawGrid = FALSE) %>%
+  dyRangeSelector() %>%
+  dyCrosshair(direction = "vertical") %>%
+  dyHighlight(highlightCircleSize = 5, highlightSeriesBackgroundAlpha = 0.2, hideOnMouseOut = FALSE)  %>%
+  dyRoller(rollPeriod = 1)
+   
+ggplotafcc
+```
+
+ROW
+---------------------
+### DATA TABLE BY CONTINENTS
+```{r}
+
+datatable(europed)
+
+```
+
+
+
+AMERICAS {data-navmenu="DEATH Cases Analysis"}
+=====================================  
+ROW
+---------------------
+### DEATHS TS PLOTTING
+```{r}
+#### africa ####
+afst <- americasd[ ,5:(ncol(americasd)-1)]
+date_af_r = colnames( afst )
+date_af_r = as.Date(date_af_r, '%m/%d/%y')
+afst <- colSums(afst)
+afst <- as.vector(afst)
+# transformation serie temporelle : 
+AFRICA. = xts(x = afst, order.by = date_af_r)
+ggplotafrica=dygraph(AFRICA.)%>%
+  dyOptions(labelsUTC = TRUE, fillGraph=TRUE, fillAlpha=0.1, drawGrid = FALSE) %>%
+  dyRangeSelector() %>%
+  dyCrosshair(direction = "vertical") %>%
+  dyHighlight(highlightCircleSize = 5, highlightSeriesBackgroundAlpha = 0.2, hideOnMouseOut = FALSE)  %>%
+  dyRoller(rollPeriod = 1)
+   
+ggplotafrica
+
+```
+
+### DEATHS BY TOP COUNTRIES > 500 CASE
+```{r}
+world_r <- americasd[ -c(1,3,4,ncol(americasd))]
+world_r=(world_r[world_r$'4/23/20'>500,])
+world_r=cbind(world_r$name,world_r[ncol(world_r)])
+names(world_r)[1]='COUNTRY'
+names(world_r)[2]='TOTALE'
+ggaffc=ggplot(data=world_r, aes(x=COUNTRY, y=TOTALE)) +
+  geom_bar(stat="identity", fill="red")+
+  theme_minimal()+theme(axis.text.x=element_blank())
+ggplotly(ggaffc)
+```
+
+### TS PLOTTING BY TOP COUNTRIES > 500 CASE
+```{r}
+world_r <- americasd[ -c(1,3,4,ncol(americasd))]
+world_r=(world_r[world_r$'4/23/20'>500,])
+# transformation serie temporelle : 
+world_r1=sapply(world_r, as.numeric)
+world_r1=data.frame(world_r1,check.names = F)
+bycityyy=aggregate((world_r1),
+                by = list(world_r$name),
+                FUN = sum)
+bycityyy$name=unique(world_r$name)
+world_r=bycityyy[,-1]
+world_r<- data.frame(world_r, row.names = 1,check.names = F)
+date_oc_r = colnames( world_r)
+date_oc_r = as.Date(date_oc_r, '%m/%d/%y')
+st.af = xts(x = t(world_r), order.by = date_oc_r)
+
+
+
+ggplotafcc=dygraph(st.af)%>%
+  dyOptions(labelsUTC = TRUE, fillGraph=TRUE, fillAlpha=0.1, drawGrid = FALSE) %>%
+  dyRangeSelector() %>%
+  dyCrosshair(direction = "vertical") %>%
+  dyHighlight(highlightCircleSize = 5, highlightSeriesBackgroundAlpha = 0.2, hideOnMouseOut = FALSE)  %>%
+  dyRoller(rollPeriod = 1)
+   
+ggplotafcc
+```
+
+ROW
+---------------------
+### DATA TABLE BY CONTINENTS
+```{r}
+
+datatable(americasd)
+
+```
+
+
+ASIA {data-navmenu="DEATH Cases Analysis"}
+=====================================  
+ROW
+---------------------
+### DEATHS TS PLOTTING
+```{r}
+#### africa ####
+afst <- asied[ ,5:(ncol(asied)-1)]
+date_af_r = colnames( afst )
+date_af_r = as.Date(date_af_r, '%m/%d/%y')
+afst <- colSums(afst)
+afst <- as.vector(afst)
+# transformation serie temporelle : 
+AFRICA. = xts(x = afst, order.by = date_af_r)
+ggplotafrica=dygraph(AFRICA.)%>%
+  dyOptions(labelsUTC = TRUE, fillGraph=TRUE, fillAlpha=0.1, drawGrid = FALSE) %>%
+  dyRangeSelector() %>%
+  dyCrosshair(direction = "vertical") %>%
+  dyHighlight(highlightCircleSize = 5, highlightSeriesBackgroundAlpha = 0.2, hideOnMouseOut = FALSE)  %>%
+  dyRoller(rollPeriod = 1)
+   
+ggplotafrica
+
+```
+
+### DEATHS BY TOP COUNTRIES > 100 CASE
+```{r}
+world_r <- asied[ -c(1,3,4,ncol(asied))]
+world_r=(world_r[world_r$'4/23/20'>100,])
+world_r=cbind(world_r$name,world_r[ncol(world_r)])
+names(world_r)[1]='COUNTRY'
+names(world_r)[2]='TOTALE'
+ggaffc=ggplot(data=world_r, aes(x=COUNTRY, y=TOTALE)) +
+  geom_bar(stat="identity", fill="red")+
+  theme_minimal()+theme(axis.text.x=element_blank())
+ggplotly(ggaffc)
+```
+
+### TS PLOTTING BY TOP COUNTRIES > 100 CASE
+```{r}
+world_r <- asied[ -c(1,3,4,ncol(asied))]
+world_r=(world_r[world_r$'4/23/20'>100,])
+# transformation serie temporelle : 
+world_r1=sapply(world_r, as.numeric)
+world_r1=data.frame(world_r1,check.names = F)
+bycityyy=aggregate((world_r1),
+                by = list(world_r$name),
+                FUN = sum)
+bycityyy$name=unique(world_r$name)
+world_r=bycityyy[,-1]
+world_r<- data.frame(world_r, row.names = 1,check.names = F)
+date_oc_r = colnames( world_r)
+date_oc_r = as.Date(date_oc_r, '%m/%d/%y')
+st.af = xts(x = t(world_r), order.by = date_oc_r)
+
+
+
+ggplotafcc=dygraph(st.af)%>%
+  dyOptions(labelsUTC = TRUE, fillGraph=TRUE, fillAlpha=0.1, drawGrid = FALSE) %>%
+  dyRangeSelector() %>%
+  dyCrosshair(direction = "vertical") %>%
+  dyHighlight(highlightCircleSize = 5, highlightSeriesBackgroundAlpha = 0.2, hideOnMouseOut = FALSE)  %>%
+  dyRoller(rollPeriod = 1)
+   
+ggplotafcc
+```
+
+ROW
+---------------------
+### DATA TABLE BY CONTINENTS
+```{r}
+
+datatable(asied)
+
+```
+
+
+
+OCEANIA {data-navmenu="DEATH Cases Analysis"}
+=====================================  
+ROW
+---------------------
+### DEATHS TS PLOTTING
+```{r}
+#### africa ####
+afst <- oceaniad[ ,5:(ncol(oceaniad)-1)]
+date_af_r = colnames( afst )
+date_af_r = as.Date(date_af_r, '%m/%d/%y')
+afst <- colSums(afst)
+afst <- as.vector(afst)
+# transformation serie temporelle : 
+AFRICA. = xts(x = afst, order.by = date_af_r)
+ggplotafrica=dygraph(AFRICA.)%>%
+  dyOptions(labelsUTC = TRUE, fillGraph=TRUE, fillAlpha=0.1, drawGrid = FALSE) %>%
+  dyRangeSelector() %>%
+  dyCrosshair(direction = "vertical") %>%
+  dyHighlight(highlightCircleSize = 5, highlightSeriesBackgroundAlpha = 0.2, hideOnMouseOut = FALSE)  %>%
+  dyRoller(rollPeriod = 1)
+   
+ggplotafrica
+
+```
+
+### DEATHS BY TOP COUNTRIES > 10 CASE
+```{r}
+world_r <- oceaniad[ -c(1,3,4,ncol(oceaniad))]
+world_r=(world_r[world_r$'4/23/20'>10,])
+world_r=cbind(world_r$name,world_r[ncol(world_r)])
+names(world_r)[1]='COUNTRY'
+names(world_r)[2]='TOTALE'
+ggaffc=ggplot(data=world_r, aes(x=COUNTRY, y=TOTALE)) +
+  geom_bar(stat="identity", fill="red")+
+  theme_minimal()+theme(axis.text.x=element_blank())
+ggplotly(ggaffc)
+```
+
+### TS PLOTTING BY TOP COUNTRIES > 10 CASE
+```{r}
+world_r <- oceaniad[ -c(1,3,4,ncol(oceaniad))]
+world_r=(world_r[world_r$'4/23/20'>10,])
+# transformation serie temporelle : 
+world_r1=sapply(world_r, as.numeric)
+world_r1=data.frame(world_r1,check.names = F)
+bycityyy=aggregate((world_r1),
+                by = list(world_r$name),
+                FUN = sum)
+bycityyy$name=unique(world_r$name)
+world_r=bycityyy[,-1]
+world_r<- data.frame(world_r, row.names = 1,check.names = F)
+date_oc_r = colnames( world_r)
+date_oc_r = as.Date(date_oc_r, '%m/%d/%y')
+st.af = xts(x = t(world_r), order.by = date_oc_r)
+
+
+
+ggplotafcc=dygraph(st.af)%>%
+  dyOptions(labelsUTC = TRUE, fillGraph=TRUE, fillAlpha=0.1, drawGrid = FALSE) %>%
+  dyRangeSelector() %>%
+  dyCrosshair(direction = "vertical") %>%
+  dyHighlight(highlightCircleSize = 5, highlightSeriesBackgroundAlpha = 0.2, hideOnMouseOut = FALSE)  %>%
+  dyRoller(rollPeriod = 1)
+   
+ggplotafcc
+```
+
+ROW
+---------------------
+### DATA TABLE BY CONTINENTS
+```{r}
+
+datatable(oceaniad)
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

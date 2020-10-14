@@ -1,0 +1,968 @@
+---
+title: "Rapport Covid-19| Projet Data Mining"
+author: "Amal Ben Messoud, Maycéne el Mejri, Oumaima Msallem, Fadi Abdlekbir et Mahdi Bouhdida"
+date: "12/05/2020"
+output: html_document
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# **Analysis on countries infected by coronavirus**
+
+##### Les Bibliothéque utilisées :
+  * ggplot2
+  * factoextra
+  * FactoMiner
+  * Hmisc
+  * ggExtra
+  * corrplot
+  * plotly
+  * forecast 
+  * d3heatmap
+  * clValid
+  * MASS
+  * rpart
+  * NbClust
+  * rms
+
+### **1. Introduction :**
+
+###### Notre analyse va se porter sur 49 pays les plus atteint par le Covid-19 jusqu'au 28/04/2020, la base de données regroupe des informations sur le nombre de contamination / guéris / déces par le virus mais aussi des indicateurs comme GPP (global pandémic prepardness) ou le FPY ( Flights per year ) .. 
+
+###### Our analysis will be on the 49 countries most affected by the Coronavirus on thel ast count '28/04/2020', we gathered information about confirmed cases, recovered cases, and deaths with some additional information about the countries.
+
+
+  
+```{r, include=FALSE}
+library(ggplot2)
+library(factoextra)
+library(FactoMineR)
+library(Hmisc)
+library(ggExtra)
+library(corrplot)
+library(plotly)
+library(forecast)
+library(d3heatmap)
+library(cluster)
+library(ggcorrplot)
+library(NbClust)
+library(rpart)
+library(rpart.plot)
+require(caTools)
+require(rms)
+library(MASS)
+library(tidyverse)
+library(caret)
+library(leaps)
+library(clValid)
+library(ROCR) 
+```
+```{r, include=FALSE}
+## Importation jeu de données : 
+
+df = read.csv('totale_final.csv',header = T,row.names = 2)
+colnames(df)[8] = "Income"
+df = df[-c(1,10)]
+
+View(df)
+df_1 = read.csv('totale_final.csv',header = T)
+df_1 = df_1[-c(1,11)]
+```
+```{r, include=FALSE}
+
+# Calcul de Pourcentage : 
+X_Conf_p = round(df$infected/df$Population..millions. *100, 4)
+df_Complet = cbind(df,X_Conf_p)
+
+X_Rec_p = round(df$recovered / df$Population..millions. *100, 4)
+df_Complet = cbind(df_Complet,X_Rec_p)
+
+X_Dea_p = round(df$deaths / df$Population..millions. *100, 4)
+df_Complet = cbind(df_Complet,X_Dea_p)
+
+Y_rec_p =  round(df$recovered / df$infected *100, 4)
+df_Complet = cbind(df_Complet, Y_rec_p)
+
+Y_dea_p =  round(df$deaths / df$infected *100, 4)
+df_Complet = cbind(df_Complet, Y_dea_p)
+
+df_Complet = cbind( df, X_Conf_p, X_Rec_p, X_Dea_p, Y_rec_p, Y_dea_p )
+colnames(df_Complet)[11:15] = c("Confirmed..%","Recovered..%","Deaths..%","Rec/Conf..%","Dea/Conf..%")
+
+
+
+# Table des infecté : Pour génerer les bar plot 
+df_c = df_1[-c(3:11)]
+df_c = cbind(df_c,df_Complet[11])
+colnames(df_c)[1] <- "Country"
+df_c = cbind(df_c,df[c(2:8)])
+
+# tableau des recoveries : Pour génerer les bar plot 
+df_r = df_1[c(1,10)]
+df_r = cbind(df_r,df_Complet[14])
+colnames(df_r)[1] <- "Country"
+df_r = cbind(df_r,df[c(2:8)])
+
+
+# Tableau des deaths : Pour génerer les bar plot 
+df_d = df_1[c(1,11)]
+df_d = cbind(df_d,df_Complet[c(13,15)])
+colnames(df_d)[1] <- "Country"
+df_d = cbind(df_d,df[c(2:8)])
+
+
+``` 
+
+#### **2. Data structure :**
+
+##### The dataset have 10 variables : 
+  * Confirmed cases 
+  * Coutry population 
+  * Density/km²  
+  * Median age
+  * Beds per 1000 
+  * GPP : Global pandemic preparedness index 
+  * FPY : Flights per year 
+  * Coutry income
+  * Recovered cases
+  * Deaths  
+
+```{r }
+str(df)
+``` 
+
+#### **3. Summary Stats :**
+
+```{r, echo=FALSE}
+summary(df)
+```
+
+
+### **4. Exploratory Data Analysis of Confirmed cases, recovered and deaths :**
+
+#### **a. Confirmed Cases :**
+
+```{r, echo=FALSE}
+ggplotly( 
+  
+    df_c %>% arrange(infected) %>%
+    mutate(Country = factor(Country,levels = Country)) %>% 
+      ggplot( aes(Country, infected,fill = infected)) +
+      geom_bar( stat = "identity") +
+      scale_fill_gradient(low = "#006080", high = "#00ace6") +
+      labs(
+        title = "Confirmed cases",
+        x = "Coutry infected ",
+        y = "Number of cases"
+      ) +
+      theme(legend.position="none") +
+      coord_flip() 
+  
+  )
+df_c = df_c[order(df_c[,2],decreasing = TRUE),]
+View(df_c)
+```
+
+Country  | Number of cases
+------------- | ------------- 
+`r df_c[1,1]` | `r format(df_c[1,2], scientific=FALSE)`
+`r df_c[2,1]` | `r format(df_c[2,2], scientific=FALSE)` 
+`r df_c[3,1]` | `r format(df_c[3,2], scientific=FALSE)` 
+`r df_c[4,1]` | `r format(df_c[4,2], scientific=FALSE)` 
+`r df_c[5,1]` | `r format(df_c[5,2], scientific=FALSE)` 
+ 
+```{r,echo=FALSE}
+ggplotly( 
+  
+    df_c %>% arrange(`Confirmed..%`) %>%
+  mutate(Country = factor(Country,levels = Country)) %>% 
+  ggplot( aes(Country, `Confirmed..%`,fill = `Confirmed..%`)) +
+    geom_bar( stat = "identity") + 
+    scale_fill_gradient(low = "#004d66", high = "#00bfff") +
+      labs(
+        title = "Confirmed cases per Total Population ",
+        x = "Country infected",
+        y = "Ratio"
+      ) +
+      theme(legend.position="none") +
+    coord_flip()
+  
+  )
+df_c = df_c[order(df_c[,3],decreasing = TRUE),]
+```
+
+
+Country  | Number of cases (%) 
+------------- | -------------
+`r df_c[1,1]` | `r format(df_c[1,3], scientific=FALSE)`
+`r df_c[2,1]` | `r format(df_c[2,3], scientific=FALSE)`
+`r df_c[3,1]` | `r format(df_c[3,3], scientific=FALSE)`
+`r df_c[4,1]` | `r format(df_c[4,3], scientific=FALSE)`
+`r df_c[5,1]` | `r format(df_c[5,3], scientific=FALSE)`
+  
+  
+------
+
+#### **b. Recovered cases :**
+
+```{r, echo=FALSE}
+ggplotly(
+  
+  df_r %>% arrange(recovered) %>%
+  mutate(Country = factor(Country,levels = Country)) %>% 
+   ggplot(aes(Country,recovered ,fill = recovered)) +
+    geom_bar( stat = "identity") +
+    scale_fill_gradient(low = "#004d00", high = "#4dff4d") +
+      labs(
+        title = "Recovered cases",
+        x = "Country infected",
+        y = "Number of cases"
+      ) +
+      theme(legend.position="none") +
+    coord_flip() 
+  
+  )
+df_r = df_r[order(df_r[,2],decreasing = TRUE),] 
+```
+
+Country  | Number of cases  
+------------- | ------------- 
+`r df_r[1,1]` | `r format(df_r[1,2], scientific=FALSE)` 
+`r df_r[2,1]` | `r format(df_r[2,2], scientific=FALSE)` 
+`r df_r[3,1]` | `r format(df_r[3,2], scientific=FALSE)` 
+`r df_r[4,1]` | `r format(df_r[4,2], scientific=FALSE)` 
+`r df_r[5,1]` | `r format(df_r[5,2], scientific=FALSE)` 
+
+```{r, echo=FALSE}
+ggplotly(
+  
+  df_r %>% arrange(`Rec/Conf..%`) %>%
+  mutate(Country = factor(Country,levels = Country)) %>% 
+   ggplot(aes(Country,`Rec/Conf..%` ,fill = `Rec/Conf..%`)) +
+    geom_bar( stat = "identity") + 
+    scale_fill_gradient(low = "#004d00", high = "#4dff4d") +
+      labs(
+        title = "Recovered cases per Confirmed cases (%) ",
+        x = "Country infected",
+        y = "Ratio"
+      ) +
+      theme(legend.position="none") +
+    coord_flip() 
+  
+  )
+df_r = df_r[order(df_r[,3],decreasing = TRUE),]
+```
+
+
+Country   | Number of cases (%)
+------------- | -------------
+`r df_r[1,1]` | `r format(df_r[1,3], scientific=FALSE)`
+`r df_r[2,1]` | `r format(df_r[2,3], scientific=FALSE)`
+`r df_r[3,1]` | `r format(df_r[3,3], scientific=FALSE)`
+`r df_r[4,1]` | `r format(df_r[4,3], scientific=FALSE)`
+`r df_r[5,1]` | `r format(df_r[5,3], scientific=FALSE)`
+  
+
+------
+
+#### **c. Death cases :**
+
+```{r, echo= FALSE}
+ggplotly(
+  
+  df_d %>% arrange(deaths) %>% 
+  mutate(Country = factor(Country,levels = Country)) %>% 
+   ggplot(aes(Country, deaths ,fill = deaths)) +
+    geom_bar( stat = "identity") + 
+    scale_fill_gradient(low = "#800000", high = "#ff6666") +
+      labs(
+        title = " Number of death cases",
+        x = "Country infected",
+        y = "Number of cases"
+      ) +
+      theme(legend.position="none") +
+    coord_flip()
+  
+  )
+df_d = df_d[order(df_d[,2],decreasing = TRUE),] ###########
+```
+
+Country  | Number of Cases 
+------------- | ------------- 
+`r df_d[1,1]` | `r format(df_d[1,2], scientific=FALSE)` 
+`r df_d[2,1]` | `r format(df_d[2,2], scientific=FALSE)` 
+`r df_d[3,1]` | `r format(df_d[3,2], scientific=FALSE)` 
+`r df_d[4,1]` | `r format(df_d[4,2], scientific=FALSE)` 
+`r df_d[5,1]` | `r format(df_d[5,2], scientific=FALSE)` 
+ 
+```{r, echo= FALSE}
+ggplotly(
+  
+  df_d %>% arrange(`Dea/Conf..%`) %>% 
+  mutate(Country = factor(Country,levels = Country)) %>% 
+   ggplot(aes(Country, `Dea/Conf..%` ,fill = `Dea/Conf..%`)) +
+    geom_bar( stat = "identity") +
+    scale_fill_gradient(low = "#800000", high = "#ff6666") +
+      labs(
+        title = "Death cases per Confirmed Cases (%) ",
+        x = "Country infected",
+        y = "Ratio"
+      ) +
+      theme(legend.position="none") +
+    coord_flip()
+  
+  )
+df_d = df_d[order(df_d[,3],decreasing = TRUE),]
+```
+
+Country   | Deaths per T.population (%) 
+------------- | ------------- 
+`r df_d[1,1]`  | `r format(df_d[1,3], scientific=FALSE)` 
+`r df_d[2,1]`  | `r format(df_d[2,3], scientific=FALSE)` 
+`r df_d[3,1]`  | `r format(df_d[3,3], scientific=FALSE)` 
+`r df_d[4,1]`  | `r format(df_d[4,3], scientific=FALSE)`
+`r df_d[5,1]`  | `r format(df_d[5,3], scientific=FALSE)` 
+
+
+```{r, echo= FALSE}
+ggplotly(
+  
+  df_d %>% arrange(`Deaths..%`) %>% 
+  mutate(Country = factor(Country,levels = Country)) %>% 
+   ggplot(aes(Country, `Deaths..%` ,fill = `Deaths..%`)) +
+    geom_bar( stat = "identity") +
+    scale_fill_gradient(low = "#800000", high = "#ff6666") +
+      labs(
+        title = "Death cases per Total Population (%) ",
+        x = "Country infected",
+        y = "Ratio"
+      ) +
+      theme(legend.position="none") +
+    coord_flip()
+  
+  )
+df_d = df_d[order(df_d[,4],decreasing = TRUE),]
+```
+
+Country  | Deaths per confirmed cases (%) 
+------------- | -------------
+`r df_d[1,1]` | `r format(df_d[1,4], scientific=FALSE)`
+`r df_d[2,1]` | `r format(df_d[2,4], scientific=FALSE)`
+`r df_d[3,1]` | `r format(df_d[3,4], scientific=FALSE)`
+`r df_d[4,1]` | `r format(df_d[4,4], scientific=FALSE)`
+`r df_d[5,1]` | `r format(df_d[5,4], scientific=FALSE)`
+  
+
+------
+
+
+### **4. Exploratory Data Analysis of Categorical Data "Inncome" :**
+
+```{r, echo=FALSE}
+a = table(df$Income)
+
+ggplotly(
+  
+  ggplot(df , aes(x = Income, fill = Income)) + 
+  geom_bar() + 
+    labs(
+        title = "distribution by income ",
+        x = "Number of coutry",
+        y = "Income"
+      ) +
+      theme(legend.position="none") 
+  
+  )
+```
+
+----
+
+High | Upper/Middle | Lower/Middle
+------------- | ------------- | -------------
+`r format(a[1], scientific=FALSE)` | `r format(a[2], scientific=FALSE)`  | `r format(a[3], scientific=FALSE)`
+
+* As shown on the graph above the coutries most affected by the virus have a high income.
+
+
+#### **a. Number of Confirmed cases per Income :** 
+
+```{r, echo=FALSE}
+ggplotly(
+  
+  ggplot(df , aes(x = Income, fill= Income)) + 
+  geom_bar(aes(weight = infected )) + 
+    labs(
+        title = "distribution by income of Confirmed cases",
+        x = "Income",
+        y = "Confirmed Cases"
+      ) +  scale_y_continuous(labels = function(x) format(x, scientific = FALSE)) +
+      theme(legend.position="none") 
+  
+  )
+
+x = df[df$Income == 'high',]
+x = colSums(x[1])
+y = df[df$Income == 'upper/middle',]
+y = colSums(y[1])
+z =  df[df$Income == 'lower/middle',]
+z = colSums(z[1])
+
+df_c = df_c[order(df_c[,2],decreasing = TRUE),]
+```
+
+##### Total Cases per income :
+
+High  | Upper/Middle | Lower/Middle
+------------- | ------------- | -------------
+`r format(x, scientific=FALSE)` | `r format(y, scientific=FALSE)`  | `r format(z, scientific=FALSE)` 
+
+##### Countries most affected / Income : 
+
+Country  | Number of cases | Income 
+------------- | ------------- | ------------- 
+`r df_c[1,1]`  | `r format(df_c[1,2], scientific=FALSE)`  | `r df_c[1,9]`
+`r df_c[2,1]`  | `r format(df_c[2,2], scientific=FALSE)`  | `r df_c[2,9]`
+`r df_c[3,1]`  | `r format(df_c[3,2], scientific=FALSE)`  | `r df_c[3,9]`
+`r df_c[4,1]`  | `r format(df_c[4,2], scientific=FALSE)`  | `r df_c[4,9]`
+`r df_c[5,1]`  | `r format(df_c[5,2], scientific=FALSE)`  | `r df_c[5,9]`
+
+---- 
+
+#### **Number of Recovered cases per Income :** 
+
+```{r, echo=FALSE}
+ggplotly(
+  
+  ggplot(df , aes(x = Income, fill= Income)) + 
+  geom_bar(aes(weight = recovered )) + 
+    labs(
+        title = "distribution by income of Recovered cases",
+        x = "Income",
+        y = "Recovered Cases"
+      ) +  scale_y_continuous(labels = function(x) format(x, scientific = FALSE)) +
+      theme(legend.position="none") 
+  
+  )
+
+x = df[df$Income == 'high',]
+x = colSums(x[9])
+y = df[df$Income == 'upper/middle',]
+y = colSums(y[9])
+z =  df[df$Income == 'lower/middle',]
+z = colSums(z[9])
+
+df_r = df_r[order(df_r[,2],decreasing = TRUE),]
+
+```
+
+##### Total number of cases / Income :
+
+High  | Upper/Middle | Lower/Middle
+------------- | ------------- | -------------
+`r format(x, scientific=FALSE)` | `r format(y, scientific=FALSE)`  | `r format(z, scientific=FALSE)` 
+
+##### Countries with the most recovered cases / Income :
+
+Country  | Number of cases | Income
+------------- | ------------- | ------------- 
+`r df_r[1,1]`  | `r format(df_r[1,2], scientific=FALSE)` | `r df_r[1,9]`
+`r df_r[2,1]`  | `r format(df_r[2,2], scientific=FALSE)` | `r df_r[2,9]`
+`r df_r[3,1]`  | `r format(df_r[3,2], scientific=FALSE)` | `r df_r[3,9]`
+`r df_r[4,1]`  | `r format(df_r[4,2], scientific=FALSE)` | `r df_r[4,9]`
+`r df_r[5,1]`  | `r format(df_r[5,2], scientific=FALSE)` | `r df_r[5,9]`
+
+----
+
+##### **Number of Death cases per Income :** 
+
+```{r, echo=FALSE}
+ggplotly(
+  
+  ggplot(df , aes(x = Income, fill= Income)) + 
+  geom_bar(aes(weight = deaths)) + 
+    labs(
+        title = "distribution by income of Recovered cases",
+        x = "Income",
+        y = "Death Cases"
+      ) +
+      theme(legend.position="none") 
+  
+  )
+
+x = df[df$Income == 'high',]
+x = colSums(x[10])
+y = df[df$Income == 'upper/middle',]
+y = colSums(y[10])
+z =  df[df$Income == 'lower/middle',]
+z = colSums(z[10])
+
+df_d = df_d[order(df_d[,2],decreasing = TRUE),]
+
+```
+
+##### Total number of cases / Income :
+
+High  | Upper/Middle | Lower/Middle
+------------- | ------------- | -------------
+`r format(x, scientific=FALSE)` | `r format(y, scientific=FALSE)`  | `r format(z, scientific=FALSE)` 
+
+---- 
+
+##### Countries with the most Death cases / Income :
+
+Country  | Number of cases | Income
+------------- | ------------- | ------------- 
+`r df_d[1,1]`  | `r format(df_d[1,2], scientific=FALSE)` | `r df_d[1,10]`
+`r df_d[2,1]`  | `r format(df_d[2,2], scientific=FALSE)` | `r df_d[2,10]`
+`r df_d[3,1]`  | `r format(df_d[3,2], scientific=FALSE)` | `r df_d[3,10]`
+`r df_d[4,1]`  | `r format(df_d[4,2], scientific=FALSE)` | `r df_d[4,10]`
+`r df_d[5,1]`  | `r format(df_d[5,2], scientific=FALSE)` | `r df_d[5,10]`
+
+----
+
+#### **5. correlogram :**
+
+```{r,echo=FALSE}
+
+workdf=df[-7]
+mydata=workdf
+mydata.cor = cor(mydata)
+mydata.cor_df = as.data.frame(mydata.cor)
+d3heatmap(x = mydata.cor, symm = TRUE)
+```
+
+
+
+### **6. PCA ANALYSIS :**
+
+```{r,warning=0, include=FALSE}
+df=read.csv('totale_final.csv',header = T,row.names = 2)
+df=df[-c(1,10)]
+```
+
+```{r,warning=0,include=FALSE}
+set.seed(33)
+clus<- kmeans(df$infected, centers = 3, nstart = 20)
+df$clusters <- as.factor(clus$cluster)
+```
+
+
+##### **Calculate the PCA : **
+```{r,warning=0, echo= FALSE}
+rec.pca=PCA(df, scale.unit = TRUE, ncp = 5, graph = T,quali.sup = c(7,11) )
+```
+
+
+##### **Extraction of eigenvalues / variances of the main components : **
+```{r,warning=0, echo= FALSE}
+get_eigenvalue(rec.pca)
+```
+
+
+##### **Visualize the eigenvalues. Shows the percentage of variances explained by each main axis: **
+
+```{r,warning=0, echo= FALSE}
+fviz_eig(rec.pca, addlabels = TRUE, ylim = c(0, 50))
+```
+
+
+
+
+Key Results: Cumulative, Eigenvalue, barplot
+In these results, the first four principal components have eigenvalues greater than 1. These three components explain 85.45% of the variation in the data. The barplot shows that the eigenvalues start to form a straight line after the fourth principal component. 
+But to make sens or our results we will use only the first two components as they represent more then 60% of the variation in the data.
+
+
+##### **Description of dimensions: **
+
+###### **Description of dimension 1: **
+
+
+```{r,warning=0, echo= FALSE}
+rec.desc <- dimdesc(rec.pca, axes = c(1,2), proba = 0.05)
+
+rec.desc$Dim.1
+```
+
+
+
+
+
+
+The first principal component is strongly correlated with four of the original variables. The first principal component increases with increasing infected cases, deaths recoveries and flights per year. This suggests that these four criteria vary together. If one increases, then the remaining ones tend to increase as well. This component can be viewed as a measure of the quality of infected cases, deaths recoveries and flights per year, and the lack of quality in global.pandemic.preparedness . Furthermore, we see that the first principal component correlates most strongly with the infected cases. In fact, we could state that based on the correlation of 0.945 that this principal component is primarily a measure of the infected cases. It would follow that communities with high values tend to have a lot of human contact, in terms of lack of quarantine,lack of emergency state, etc. Whereas communities with small values would have took early precautions and respected quarantine.
+
+FURTHERMORE, to make more sens and logic out of this , the flight per year is a global index that point us to number of lights of each country per year, we see that this variable is highly correlated with the first component the same as the infected, which means that when this variable increases the infected cases increases too.
+
+PLUS, we can remark that the deaths are more correlated with the infected cases more than the recoveries despite that the recoveries are more then deaths, we can related to how fast was the deaths are happening just after infection " because at first the world was unable to do anything for the infected people just to put them in care and give them pain killers with no treatment" but after couple of weeks they understanded more this pendamic and came up with temporarily treatments. 
+
+
+###### **Description of dimension 2: **
+
+```{r,warning=0, echo= FALSE}
+
+rec.desc$Dim.2
+```
+
+
+
+
+
+
+The second principal component increases with only two of the values, median.age and beds...1000. This component can be viewed as a measure of how healthy the location is in terms of available beds of hospitals for  health care, and the average age of people in that country.
+FURTHERMORE, as we stated above in variale discription, the the GPP represents how much,on sacle of 100, the country is prepared if a pendamic goes wild.
+Unfortunatly this variable is not very correlated with the others which means that even the hilghy prepared and top ranked countries were not prepared enough for coronavirus COVID-19 pendamic, so here we can say that it doesn't matter if you are prepared for this or not your should take more precautions.
+
+
+
+
+##### **Graph of individuals. Coloring according to kmeans clustring by infected. Similar individuals are grouped together: **
+```{r,warning=0, echo= FALSE}
+fviz_pca_ind(rec.pca,habillage = 11,
+             repel = FALSE  ,addEllipses = T  )
+
+```
+
+
+
+As we can see in the graph above that US is concedered as an group by it self and the other two groups have some intersection and that's probably because they have very close number of infected cases.
+
+
+
+
+##### **Graph of variables. Coloring according to the kmeans clustring of the variables. The positively correlated variables are on the same side of the graph. The negatively correlated variables are on opposite sides of the graph: **
+```{r,warning=0, echo= FALSE}
+# Créez une variable de regroupement en utilisant kmeans
+# Créez 3 groupes de variables (centers = 3)
+set.seed(2)
+rec.km <- kmeans(rec.pca$var$coord, centers = 3, nstart = 25)
+grp <- as.factor(rec.km$cluster)
+# Colorer les variables par groupes
+fviz_pca_var(rec.pca, col.var = grp, 
+             palette = c("#0073C2FF", "#EFC000FF", "#868686FF"),
+             legend.title = "Cluster")
+```
+
+
+
+Here, we used kmeans segmentation to divide the variables and infact this graph confirme our interpretaion above that the infected cases, deaths recoveries and flight per year are highly correlated and this graph shows that they are in the same group of cluster which is very logic, the same goes for beds per 1000km², median age, and GPP.
+but we can see that it has grouped the density and population count which is very normal because the dansity is calculated based on the population count in the first place, but the cercle of corelation tells a diffirent story, these last two variables are negativily correlated plus the density per km² is badly represented here.
+
+
+
+
+##### **Coordinates of variables on main axes: **
+```{r,warning=0, echo= FALSE}
+rec.pca$var$coord
+```
+
+
+###### **coordiantes on axe 1: **
+
+
+the top three variables with the best or highest coordinates are "infected with 0.945" , " deaths with 0.923" , "FPY..flights.per.year 0.881"and "recovered 0.85", here we recall that these variales are highly correlated on the component 1
+
+###### **coordiantes on axe 2: **
+
+the top three variables with the best or highest coordinates are "median.age with 0.861" , " beds...1000 with 0.774" and the "GPP...global.pandemic.preparedness" have medium to low coordinates with " 0.408", here we recall that the first two variales are highly correlated on the component 2
+
+
+
+
+##### **Cos2: quality of representation of the variables on the main axes: **
+```{r,warning=0, echo= FALSE}
+rec.pca$var$cos2
+# qualité de répresentation des variables à PC1 top 4
+fviz_cos2(rec.pca, choice = "var", axes = 1, top = 4)
+# qualité de répresentation des variables à PC2 top 4
+fviz_cos2(rec.pca, choice = "var", axes = 2, top = 4)
+```
+
+
+
+###### **quality of representation on Axe 1 : **
+
+the top three variables with the best or highest quality of representation are "infected with 0.893" , " deaths with 0.851" , "FPY..flights.per.year 0.776"and "recovered 0.723", here we recall that these variales are highly correlated on the component 1
+
+###### **quality of representation on Axe 2 : **
+
+the top three variables with the best or highest quality of representation are "median.age with 0.742" , " beds...1000 with 0.6" and the "GPP...global.pandemic.preparedness" have  low quality of representation with " 0.166", here we recall that the first two variales are highly correlated on the component 2
+
+
+
+##### **Contribution of variables to main axes: **
+```{r,warning=0, echo= FALSE}
+rec.pca$var$contrib
+# Contributions des variables à PC1 top 4
+fviz_contrib(rec.pca, choice = "var", axes = 1, top = 4)
+# Contributions des variables à PC2 top4
+fviz_contrib(rec.pca, choice = "var", axes = 2, top = 4)
+
+```
+
+
+
+###### **Contribution of variables on Axe 1 : **
+
+the top three variables with the best or highest Contributions are "infected with 23.63" , " deaths with 22.52" , "FPY..flights.per.year 20.53"and "recovered 19.11", here we recall that these variales are highly correlated on the component 1
+
+###### **Contribution of variables on Axe 2 : **
+
+the top three variables with the best or highest Contributions are "median.age with 39.70" , " beds...1000 with 32.085" and the "GPP...global.pandemic.preparedness" have very low Contribution with " 3.932", here we recall that the first two variales are highly correlated on the component 2
+
+
+
+
+##### **INDIVIDUALS : quality and contribution: **
+```{r,warning=0, echo= FALSE}
+fviz_cos2(rec.pca, choice = "ind",col = df$ds)
+```
+
+```{r,warning=0, echo= FALSE}
+
+fviz_contrib(rec.pca, choice = "ind", axes = 2,col = df$clusters)
+```
+
+
+
+
+Here we can remark that the most of the countries that have high quality of representation on the first component are mostly the medium and high income countries if we make couple steps behind to the 1st dim analysis we said that the infected variable is the most representative on it, plus we expressed it with the variable flights per year, here actually it makes lot of sens because normaly we you ( as a country )  have medium or high income means that you have medium or big aeroports and with you'll have medium to high number of flights per year !
+same goes for the 2nd dimenstion, the more income you have the more health care you will provide for your citizents.
+
+
+
+### **7. clustring :**
+
+To start our classification and segmentation first we need to choose the right algorithem and methods that works well with our dataset,we will use the clValid package sub-functions to identify the best clustering approach and the optimal number of clusters. We will compare k-means, hierarchical and PAM clustering. 
+```{r,warning=0, echo= FALSE}
+x=df[-c(7,11)]
+intern <- clValid(scale(x), nClust = 3:24, 
+              clMethods = c("hierarchical","kmeans","pam"), validation = "internal")
+# Summary
+summary(intern)
+```
+
+Connectivity and Silhouette are both measurements of connectedness while the Dunn Index is the ratio of the smallest distance between observations not in the same cluster to the largest intra-cluster distance.
+as for now we will use 3 clusters and the 'hierarchical' method.
+
+
+
+##### **just to verify our choice we will use the 26 creterias : **
+```{r,warning=0, echo= FALSE}
+res.nbclust <- NbClust(scale(x), distance = "euclidean",
+                  min.nc = 3, max.nc = 9, 
+                  method = "complete", index ="all")
+factoextra::fviz_nbclust(res.nbclust) + theme_minimal() + ggtitle("NbClust's optimal number of clusters")
+```
+
+so this histograme above shows us that the majority of creterias has proposed 3 clusters
+
+
+
+
+
+##### **the dendrogram: **
+```{r,warning=0, echo= FALSE}
+set.seed(33)
+x=df[-c(7,11)]
+countries <- dist(scale(x), method = "euclidean")
+# Hierarchical clustering using Ward's method
+res.hc <- hclust(countries, method = "ward.D2" )
+# Cut tree into 5 groups
+grp <- cutree(res.hc, k = 3)
+# Visualize
+plot(res.hc,hang=-1, cex = 0.6) # plot tree
+rect.hclust(res.hc, k = 3, border = 2:5) # add rectangle
+```
+
+
+this dendrogram above tells the same story as the results from the clValid package, and the PCA individuals plot clustred by kmeans.
+three major clusters are present here, if we make the relation between the classification results and the PCA results we can say that the blue cluster (right group) are the medium to low and low incom countries, as result these countries have the lowest infected cases recorded and that's because as we said before they dont have a high number of flights, and the green cluster (middle group) are the medium to high and high incom countries respectively medium to high and high number of flights per year, the last cluster the red cluster it is an individual by it's self and that's normal because US have the highest number of flights per year and now it's recording the highest number of infected cases and it represent by it's self 50% of the infected cases!
+
+
+
+
+
+### **ADDING AN INDEX: **
+
+In this part we will classify the countries by a risk indicator called 'state' from 0 and 1 respectevily means low  and high risk that we will create as follows:
+
+if the total deaths are more then 3% of the total infected cases the country will take class 1 which is the highest and means it is very serious condition!
+
+if the total deaths are less then 3% of the total infected cases the country will take class 0 which is the lowest and means the general condition is under control!
+
+
+
+```{r,warning=0,include=FALSE}
+df$state='LOW'
+df$state[((df$deaths/df$infected)*100)>3]='HIGH'
+country=rownames(df)
+```
+
+```{r,warning=0,include=FALSE}
+tb=data.frame(table(df$state))
+names(tb)[1]='INDICATOR'
+names(tb)[2]='COUNT'
+```
+
+```{r,warning=0, echo= FALSE}
+# A l'intérieur des barres
+ggplotly(ggplot(data=tb, aes(x=INDICATOR, y=COUNT)) +
+  geom_bar(stat="identity", fill="steelblue")+
+  geom_text(aes(label=COUNT), vjust=1.6, color="white", size=3.5)+
+  theme_minimal())
+```
+here we can see that 30 countries are at high risk, very indangered by this pendamic and 19 countries are take control over it!
+
+
+ 
+### **DECISION TREE: **
+
+in this section we will not use the RANDOM FOREST because we dont have many individuals to create the unique noeds(default in R is 500), instead we will use the DECISION TREE:
+
+```{r,warning=0, echo= FALSE}
+set.seed(10)
+Tree <- rpart(state~.,data=df)
+
+# chercher ligne cp correspondant à  xerror min
+optcp=Tree$cptable[which.min(Tree$cptable[,4]),1]
+TOptimal <- rpart(state~., data=df, cp=optcp, control=rpart.control(minsplit = 9))
+TOptimal <- rpart(state~., data=df, cp=0.010000, control=rpart.control(minsplit = 9))
+rpart.plot(TOptimal)
+
+```
+
+the results here are very very interesting:
+
+The tree structure is ideal for capturing interactions between features in the data.
+the tree tells us that if a country have deaths under 302 and a median age under 41  the risk indicator is 'LOW' which means that the country will be able to control the situation, and if it have median age above 41 it will have 6% chance to loose control, that means the infected people above the age of 41 will have a greater risk to die it they got infected!
+
+now talking about the right side of the tree if a country have more then 302 deaths we will consider and other indicator which is the global pandemic preparedness, if this last is more then 54% there is a high chance for the country to be at high risk from this pandemic and it's risk indicator is '1'HIGH' which is not very logical.
+
+if a country is prepared for a pandemic why will it be at risk ? 
+
+This confirmes the results from the PCA this unlogic results means two things :
+
+ first, this pandemic was beyond the expectations, which  is a fact!
+
+ second, the countries who thought that they are prepared and didn't follow the instructions for the lockdown, quarantine and they   
+ relied on thier general health care indicators ( bed per 1000km², global pandemic preparedness, rehabitation beds) they got a hard  
+ nockdown and got the highest numbers of infected cases, and the US is the best exemple for this.
+
+
+FURTHERMORE, if a country have a GPP under 54% and recoveries above 4682 means that they are partially okay! but they are still indangered.
+But if they have recoveries under 4682 they are definitely at risk!
+
+
+
+```{r,warning=0, echo= FALSE}
+set.seed(10)
+x<-sample(c(1:nrow(df)), 0.75*nrow(df))
+
+training=df[x,-12]
+test=df[-x,-12]
+
+xx=predict(TOptimal,test,type="prob"  )
+
+# exemple sur 10 lignes 
+test2=df[1:10,-12]
+xxx=predict(TOptimal,test2,type="prob"  )
+
+
+ORIGINAL=df$state
+PREDICTED=predict(TOptimal, df, type="class")
+A=table(ORIGINAL,PREDICTED) # matrice de confusion de la classification réelle et la classification par prédiction
+
+```
+
+
+```{r,warning=0, echo= FALSE}
+A
+```
+ As we can above the confusion matrix show only 4 individuals are misplaced
+
+```{r,warning=0, echo= FALSE}
+print("THE PRECISION OF THE CORRECT PLACED PREDICTIONS IS :" )
+(A[1,1]+A[2,2])/sum(A)
+
+print('THE PRECISION OF THE ERRORS IS :' )
+1-(A[1,1]+A[2,2])/sum(A)
+```
+
+here we have high precision which is very good!
+
+
+
+### **logistic regression: **
+in this part we will work on the logistic regression and we will use the automatic methods 'BACKWARD' and 'FORWARD' with the 'BOTH' argument in  the stepAIC function:
+Furthermore, we will make a little modification here on our state index, we will calculate the totale active cases on the totale infected cases and we will round this number and it will either 1 or 0, to understand more 1 will be the high risk and 0 the low risk!
+and we are going to remove the infected column to avoid the over fitting.
+
+HERE's the results:
+
+```{r,warning=0, echo= FALSE}
+str_constant <- "~ 1"# modèle trivial réduit à la constante
+
+str_all <- "~Population..millions.+Density..Km.+median.age+beds...1000+GPP...global.pandemic.preparedness+ds+FPY..flights.per.year+recovered+deaths" # modèle complet incluant toutes les explicatives potentielles
+```
+
+
+```{r,warning=0, echo= FALSE}
+df$state=round((df$infected-(df$deaths+df$recovered))/df$infected)
+newdf=df[,-c(11)]
+newdf$ds=as.character(newdf$ds)
+newdf$ds[newdf$ds=='high']=1
+newdf$ds[newdf$ds=='lower/middle']=2
+newdf$ds[newdf$ds=='upper/middle']=3
+newdf$ds=as.numeric(newdf$ds)
+
+```
+
+```{r,warning=0, echo= FALSE}
+modele <- glm(state ~1, data = (newdf), family = binomial)# modèle réduit
+modele.selection <- stepAIC(modele, scope = list(lower = str_constant, upper = str_all), trace = TRUE, data = newdf, direction = "both")
+```
+ 
+ 
+ 
+this is the final model selected by the function:
+```{r,warning=0, echo= FALSE}
+summary(modele.selection)
+```
+as we can see from the results above, most the p-values are very significant
+
+
+in this section we will see the accuracy of the predicted selected model :
+```{r,warning=0, echo= FALSE}
+set.seed(10)
+x<-sample(c(1:nrow(newdf)), 0.75*nrow(newdf))
+
+training=newdf[x,]
+test=newdf[-x,]
+test2=test[,-12]
+pred_test <-round( predict(modele.selection, newdata = test2, type="response"))
+TC2=table(test$state,pred_test )
+Accuracy= (TC2[1,1]+TC2[2,2])/sum(TC2)
+print("THE ACCURACY OF THE CORRECT PLACED PREDICTIONS IS :" )
+Accuracy
+
+print('THE ACCURACY OF THE ERRORS IS :' )
+1-Accuracy
+```
+
+we have a good accuracy!
+
+
+
+##### **SUM-up interpretations:**
+
+the number 1 factor in the evolution of infected cases is the flights per year indicator!
+
+proof : USA  has the highest number of Flights per year and the Highest number of infected cases
+
+the GPP, global pandemic preparedness indicator does not explain the percentage of the recoveries.
+
+the general health idicators (see in PCA results), did not explain if a country could be effective against the virus or not !
+
+the numbers of deaths increases where a country have a median age above 41.
+
