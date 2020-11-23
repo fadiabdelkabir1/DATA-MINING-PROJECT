@@ -1,4 +1,4 @@
-# DATA MINING PROJECT:
+# DATA MINING PROJECT
 • TASKS:        
 o Collecting and inspecting data        
 o Data cleaning & preparing     
